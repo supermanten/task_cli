@@ -26,6 +26,18 @@ pub enum AppState {
     TaskList,
     AddTask,
     TaskDetails(usize),
+    TaskActions(usize),
+    AddNote(usize),
+    AddSubtask(usize),
+    AddTag(usize),
+    SetProject(usize),
+    SetDueDate(usize),
+    AddChecklistItem(usize),
+    BoardView,
+    CalendarView,
+    TimelineView,
+    FocusView,
+    ExportView,
     Help,
 }
 
@@ -34,10 +46,15 @@ pub struct App {
     pub state: AppState,
     pub task_manager: TaskManager,
     pub selected_task: usize,
+    pub selected_board: usize,
+    pub selected_export: usize,
     pub scroll_position: usize,
     pub input_buffer: String,
     pub input_field: InputField,
     pub should_quit: bool,
+    pub current_task_id: Option<u32>,
+    pub filter_query: String,
+    pub focus_context: String,
 }
 
 #[derive(Debug)]
@@ -48,6 +65,14 @@ pub enum InputField {
     TaskProject,
     TaskTags,
     TaskDueDate,
+    NoteContent,
+    SubtaskDescription,
+    TagName,
+    ProjectName,
+    DueDate,
+    ChecklistItem,
+    FilterQuery,
+    FocusContext,
 }
 
 impl App {
@@ -56,10 +81,15 @@ impl App {
             state: AppState::MainMenu,
             task_manager: TaskManager::new(),
             selected_task: 0,
+            selected_board: 0,
+            selected_export: 0,
             scroll_position: 0,
             input_buffer: String::new(),
             input_field: InputField::None,
             should_quit: false,
+            current_task_id: None,
+            filter_query: String::new(),
+            focus_context: String::new(),
         }
     }
 
@@ -102,6 +132,18 @@ impl App {
             AppState::TaskList => self.handle_task_list_input(key),
             AppState::AddTask => self.handle_add_task_input(key),
             AppState::TaskDetails(_) => self.handle_task_details_input(key),
+            AppState::TaskActions(_) => self.handle_task_actions_input(key),
+            AppState::AddNote(_) => self.handle_add_note_input(key),
+            AppState::AddSubtask(_) => self.handle_add_subtask_input(key),
+            AppState::AddTag(_) => self.handle_add_tag_input(key),
+            AppState::SetProject(_) => self.handle_set_project_input(key),
+            AppState::SetDueDate(_) => self.handle_set_due_date_input(key),
+            AppState::AddChecklistItem(_) => self.handle_add_checklist_item_input(key),
+            AppState::BoardView => self.handle_board_view_input(key),
+            AppState::CalendarView => self.handle_calendar_view_input(key),
+            AppState::TimelineView => self.handle_timeline_view_input(key),
+            AppState::FocusView => self.handle_focus_view_input(key),
+            AppState::ExportView => self.handle_export_view_input(key),
             AppState::Help => self.handle_help_input(key),
         }
     }
@@ -113,7 +155,15 @@ impl App {
                 self.state = AppState::AddTask;
                 self.input_field = InputField::TaskDescription;
             }
-            KeyCode::Char('3') => self.state = AppState::Help,
+            KeyCode::Char('3') => self.state = AppState::BoardView,
+            KeyCode::Char('4') => self.state = AppState::CalendarView,
+            KeyCode::Char('5') => self.state = AppState::TimelineView,
+            KeyCode::Char('6') => {
+                self.state = AppState::FocusView;
+                self.input_field = InputField::FocusContext;
+            }
+            KeyCode::Char('7') => self.state = AppState::ExportView,
+            KeyCode::Char('8') => self.state = AppState::Help,
             KeyCode::Char('q') | KeyCode::Esc => self.should_quit = true,
             _ => {}
         }
@@ -134,7 +184,7 @@ impl App {
             }
             KeyCode::Enter => {
                 if !tasks.is_empty() {
-                    self.state = AppState::TaskDetails(self.selected_task);
+                    self.state = AppState::TaskActions(self.selected_task);
                 }
             }
             KeyCode::Char('d') => {
@@ -146,6 +196,44 @@ impl App {
             KeyCode::Char('a') => {
                 self.state = AppState::AddTask;
                 self.input_field = InputField::TaskDescription;
+            }
+            KeyCode::Char('n') => {
+                if !tasks.is_empty() {
+                    self.current_task_id = Some(tasks[self.selected_task].id);
+                    self.state = AppState::AddNote(self.selected_task);
+                    self.input_field = InputField::NoteContent;
+                }
+            }
+            KeyCode::Char('s') => {
+                if !tasks.is_empty() {
+                    self.current_task_id = Some(tasks[self.selected_task].id);
+                    self.state = AppState::AddSubtask(self.selected_task);
+                    self.input_field = InputField::SubtaskDescription;
+                }
+            }
+            KeyCode::Char('t') => {
+                if !tasks.is_empty() {
+                    self.current_task_id = Some(tasks[self.selected_task].id);
+                    self.state = AppState::AddTag(self.selected_task);
+                    self.input_field = InputField::TagName;
+                }
+            }
+            KeyCode::Char('p') => {
+                if !tasks.is_empty() {
+                    self.current_task_id = Some(tasks[self.selected_task].id);
+                    self.state = AppState::SetProject(self.selected_task);
+                    self.input_field = InputField::ProjectName;
+                }
+            }
+            KeyCode::Char('c') => {
+                if !tasks.is_empty() {
+                    self.current_task_id = Some(tasks[self.selected_task].id);
+                    self.state = AppState::AddChecklistItem(self.selected_task);
+                    self.input_field = InputField::ChecklistItem;
+                }
+            }
+            KeyCode::Char('/') => {
+                self.input_field = InputField::FilterQuery;
             }
             KeyCode::Esc | KeyCode::Char('q') => self.state = AppState::MainMenu,
             _ => {}
@@ -206,6 +294,289 @@ impl App {
         }
     }
 
+    fn handle_task_actions_input(&mut self, key: event::KeyEvent) {
+        match key.code {
+            KeyCode::Char('d') => {
+                if let AppState::TaskActions(index) = self.state {
+                    let tasks = self.task_manager.get_active_tasks();
+                    if index < tasks.len() {
+                        let task_id = tasks[index].id;
+                        self.task_manager.mark_done(task_id);
+                        self.state = AppState::TaskList;
+                    }
+                }
+            }
+            KeyCode::Char('n') => {
+                if let AppState::TaskActions(index) = self.state {
+                    self.current_task_id = Some(self.task_manager.get_active_tasks()[index].id);
+                    self.state = AppState::AddNote(index);
+                    self.input_field = InputField::NoteContent;
+                }
+            }
+            KeyCode::Char('s') => {
+                if let AppState::TaskActions(index) = self.state {
+                    self.current_task_id = Some(self.task_manager.get_active_tasks()[index].id);
+                    self.state = AppState::AddSubtask(index);
+                    self.input_field = InputField::SubtaskDescription;
+                }
+            }
+            KeyCode::Char('t') => {
+                if let AppState::TaskActions(index) = self.state {
+                    self.current_task_id = Some(self.task_manager.get_active_tasks()[index].id);
+                    self.state = AppState::AddTag(index);
+                    self.input_field = InputField::TagName;
+                }
+            }
+            KeyCode::Char('p') => {
+                if let AppState::TaskActions(index) = self.state {
+                    self.current_task_id = Some(self.task_manager.get_active_tasks()[index].id);
+                    self.state = AppState::SetProject(index);
+                    self.input_field = InputField::ProjectName;
+                }
+            }
+            KeyCode::Char('c') => {
+                if let AppState::TaskActions(index) = self.state {
+                    self.current_task_id = Some(self.task_manager.get_active_tasks()[index].id);
+                    self.state = AppState::AddChecklistItem(index);
+                    self.input_field = InputField::ChecklistItem;
+                }
+            }
+            KeyCode::Char('r') => {
+                if let AppState::TaskActions(index) = self.state {
+                    let tasks = self.task_manager.get_active_tasks();
+                    if index < tasks.len() {
+                        let task_id = tasks[index].id;
+                        if tasks[index].timer_start.is_some() {
+                            self.task_manager.stop_timer(task_id);
+                        } else {
+                            self.task_manager.start_timer(task_id);
+                        }
+                    }
+                }
+            }
+            KeyCode::Char('v') => {
+                if let AppState::TaskActions(index) = self.state {
+                    self.state = AppState::TaskDetails(index);
+                }
+            }
+            KeyCode::Esc => {
+                self.state = AppState::TaskList;
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_add_note_input(&mut self, key: event::KeyEvent) {
+        match key.code {
+            KeyCode::Enter => {
+                if let Some(task_id) = self.current_task_id {
+                    self.task_manager.add_note(task_id, self.input_buffer.clone());
+                    self.input_buffer.clear();
+                    self.input_field = InputField::None;
+                    self.state = AppState::TaskList;
+                }
+            }
+            KeyCode::Backspace => {
+                self.input_buffer.pop();
+            }
+            KeyCode::Char(c) => {
+                self.input_buffer.push(c);
+            }
+            KeyCode::Esc => {
+                self.input_buffer.clear();
+                self.input_field = InputField::None;
+                self.state = AppState::TaskList;
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_add_subtask_input(&mut self, key: event::KeyEvent) {
+        match key.code {
+            KeyCode::Enter => {
+                if let Some(task_id) = self.current_task_id {
+                    self.task_manager.add_subtask(task_id, self.input_buffer.clone());
+                    self.input_buffer.clear();
+                    self.input_field = InputField::None;
+                    self.state = AppState::TaskList;
+                }
+            }
+            KeyCode::Backspace => {
+                self.input_buffer.pop();
+            }
+            KeyCode::Char(c) => {
+                self.input_buffer.push(c);
+            }
+            KeyCode::Esc => {
+                self.input_buffer.clear();
+                self.input_field = InputField::None;
+                self.state = AppState::TaskList;
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_add_tag_input(&mut self, key: event::KeyEvent) {
+        match key.code {
+            KeyCode::Enter => {
+                if let Some(task_id) = self.current_task_id {
+                    self.task_manager.add_tag(task_id, self.input_buffer.clone());
+                    self.input_buffer.clear();
+                    self.input_field = InputField::None;
+                    self.state = AppState::TaskList;
+                }
+            }
+            KeyCode::Backspace => {
+                self.input_buffer.pop();
+            }
+            KeyCode::Char(c) => {
+                self.input_buffer.push(c);
+            }
+            KeyCode::Esc => {
+                self.input_buffer.clear();
+                self.input_field = InputField::None;
+                self.state = AppState::TaskList;
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_set_project_input(&mut self, key: event::KeyEvent) {
+        match key.code {
+            KeyCode::Enter => {
+                if let Some(task_id) = self.current_task_id {
+                    self.task_manager.set_project(task_id, self.input_buffer.clone());
+                    self.input_buffer.clear();
+                    self.input_field = InputField::None;
+                    self.state = AppState::TaskList;
+                }
+            }
+            KeyCode::Backspace => {
+                self.input_buffer.pop();
+            }
+            KeyCode::Char(c) => {
+                self.input_buffer.push(c);
+            }
+            KeyCode::Esc => {
+                self.input_buffer.clear();
+                self.input_field = InputField::None;
+                self.state = AppState::TaskList;
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_set_due_date_input(&mut self, key: event::KeyEvent) {
+        match key.code {
+            KeyCode::Enter => {
+                if let Some(task_id) = self.current_task_id {
+                    // For simplicity, we'll just set a dummy date for now
+                    // In a real implementation, you'd parse the date string
+                    let dummy_date = chrono::Utc::now() + chrono::Duration::days(7);
+                    self.task_manager.set_due_date(task_id, dummy_date);
+                    self.input_buffer.clear();
+                    self.input_field = InputField::None;
+                    self.state = AppState::TaskList;
+                }
+            }
+            KeyCode::Backspace => {
+                self.input_buffer.pop();
+            }
+            KeyCode::Char(c) => {
+                self.input_buffer.push(c);
+            }
+            KeyCode::Esc => {
+                self.input_buffer.clear();
+                self.input_field = InputField::None;
+                self.state = AppState::TaskList;
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_add_checklist_item_input(&mut self, key: event::KeyEvent) {
+        match key.code {
+            KeyCode::Enter => {
+                if let Some(task_id) = self.current_task_id {
+                    self.task_manager.add_checklist_item(task_id, self.input_buffer.clone());
+                    self.input_buffer.clear();
+                    self.input_field = InputField::None;
+                    self.state = AppState::TaskList;
+                }
+            }
+            KeyCode::Backspace => {
+                self.input_buffer.pop();
+            }
+            KeyCode::Char(c) => {
+                self.input_buffer.push(c);
+            }
+            KeyCode::Esc => {
+                self.input_buffer.clear();
+                self.input_field = InputField::None;
+                self.state = AppState::TaskList;
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_board_view_input(&mut self, key: event::KeyEvent) {
+        match key.code {
+            KeyCode::Esc | KeyCode::Char('q') => self.state = AppState::MainMenu,
+            _ => {}
+        }
+    }
+
+    fn handle_calendar_view_input(&mut self, key: event::KeyEvent) {
+        match key.code {
+            KeyCode::Esc | KeyCode::Char('q') => self.state = AppState::MainMenu,
+            _ => {}
+        }
+    }
+
+    fn handle_timeline_view_input(&mut self, key: event::KeyEvent) {
+        match key.code {
+            KeyCode::Esc | KeyCode::Char('q') => self.state = AppState::MainMenu,
+            _ => {}
+        }
+    }
+
+    fn handle_focus_view_input(&mut self, key: event::KeyEvent) {
+        match key.code {
+            KeyCode::Enter => {
+                // Search is already handled in real-time
+            }
+            KeyCode::Backspace => {
+                self.input_buffer.pop();
+            }
+            KeyCode::Char(c) => {
+                self.input_buffer.push(c);
+            }
+            KeyCode::Esc => {
+                self.input_buffer.clear();
+                self.input_field = InputField::None;
+                self.state = AppState::MainMenu;
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_export_view_input(&mut self, key: event::KeyEvent) {
+        match key.code {
+            KeyCode::Char('1') => {
+                // Export as CSV
+                let _ = self.task_manager.export_csv("tasks_export.csv");
+                self.state = AppState::MainMenu;
+            }
+            KeyCode::Char('2') => {
+                // Export as JSON
+                let _ = self.task_manager.export_json("tasks_export.json");
+                self.state = AppState::MainMenu;
+            }
+            KeyCode::Esc => self.state = AppState::MainMenu,
+            _ => {}
+        }
+    }
+
     fn handle_help_input(&mut self, key: event::KeyEvent) {
         match key.code {
             KeyCode::Esc | KeyCode::Char('q') => self.state = AppState::MainMenu,
@@ -221,6 +592,18 @@ impl App {
             AppState::TaskList => self.draw_task_list(f, size),
             AppState::AddTask => self.draw_add_task(f, size),
             AppState::TaskDetails(index) => self.draw_task_details(f, size, index),
+            AppState::TaskActions(index) => self.draw_task_actions(f, size, index),
+            AppState::AddNote(index) => self.draw_add_note(f, size, index),
+            AppState::AddSubtask(index) => self.draw_add_subtask(f, size, index),
+            AppState::AddTag(index) => self.draw_add_tag(f, size, index),
+            AppState::SetProject(index) => self.draw_set_project(f, size, index),
+            AppState::SetDueDate(index) => self.draw_set_due_date(f, size, index),
+            AppState::AddChecklistItem(index) => self.draw_add_checklist_item(f, size, index),
+            AppState::BoardView => self.draw_board_view(f, size),
+            AppState::CalendarView => self.draw_calendar_view(f, size),
+            AppState::TimelineView => self.draw_timeline_view(f, size),
+            AppState::FocusView => self.draw_focus_view(f, size),
+            AppState::ExportView => self.draw_export_view(f, size),
             AppState::Help => self.draw_help(f, size),
         }
     }
@@ -230,7 +613,7 @@ impl App {
             .direction(Direction::Vertical)
             .constraints([
                 Constraint::Length(3),
-                Constraint::Min(10),
+                Constraint::Min(15),
                 Constraint::Length(3),
             ])
             .split(area);
@@ -246,7 +629,12 @@ impl App {
         let menu_items = vec![
             "1. 📋 View Tasks",
             "2. ➕ Add New Task",
-            "3. ❓ Help",
+            "3. 📊 Board View",
+            "4. 📅 Calendar View",
+            "5. ⏰ Timeline View",
+            "6. 🎯 Focus View",
+            "7. 💾 Export Data",
+            "8. ❓ Help",
             "q. 🚪 Quit",
         ];
 
@@ -267,7 +655,7 @@ impl App {
         f.render_widget(menu, chunks[1]);
 
         // Footer
-        let footer = Paragraph::new("Use number keys or arrow keys to navigate")
+        let footer = Paragraph::new("Use number keys to select • q: Quit")
             .style(Style::default().fg(Color::Gray))
             .alignment(Alignment::Center);
         f.render_widget(footer, chunks[2]);
@@ -325,9 +713,10 @@ impl App {
         f.render_widget(task_list, chunks[1]);
 
         // Footer
-        let footer = Paragraph::new("↑/↓ Navigate • Enter: Details • d: Mark Done • a: Add Task • Esc: Back")
+        let footer = Paragraph::new("↑/↓ Navigate • Enter: Actions • d: Done • a: Add • n: Note • s: Subtask • t: Tag • p: Project • c: Checklist • /: Filter • Esc: Back")
             .style(Style::default().fg(Color::Gray))
-            .alignment(Alignment::Center);
+            .alignment(Alignment::Center)
+            .wrap(Wrap { trim: true });
         f.render_widget(footer, chunks[2]);
     }
 
@@ -421,6 +810,589 @@ impl App {
         f.render_widget(footer, chunks[2]);
     }
 
+    fn draw_task_actions(&self, f: &mut Frame, area: Rect, index: usize) {
+        let tasks = self.task_manager.get_active_tasks();
+        if index >= tasks.len() {
+            return;
+        }
+
+        let task = &tasks[index];
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(3), Constraint::Length(5), Constraint::Min(10), Constraint::Length(3)])
+            .split(area);
+
+        // Header
+        let header = Paragraph::new(format!("⚡ Task Actions - {}", task.description))
+            .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
+            .alignment(Alignment::Center)
+            .block(Block::default().borders(Borders::ALL));
+        f.render_widget(header, chunks[0]);
+
+        // Task info
+        let priority_color = match task.priority {
+            Priority::High => Color::Red,
+            Priority::Medium => Color::Yellow,
+            Priority::Low => Color::Green,
+        };
+
+        let task_info = vec![
+            Line::from(vec![
+                Span::styled("Status: ", Style::default().fg(Color::White)),
+                Span::styled(if task.done { "✅ Done" } else { "⏳ In Progress" }, Style::default().fg(Color::Green)),
+            ]),
+            Line::from(vec![
+                Span::styled("Priority: ", Style::default().fg(Color::White)),
+                Span::styled(format!("{:?}", task.priority), Style::default().fg(priority_color)),
+            ]),
+        ];
+
+        let info_paragraph = Paragraph::new(Text::from(task_info))
+            .block(Block::default().borders(Borders::ALL).title("Task Info"))
+            .wrap(Wrap { trim: true });
+        f.render_widget(info_paragraph, chunks[1]);
+
+        // Actions menu
+        let actions = vec![
+            "d. ✅ Mark as Done",
+            "n. 📝 Add Note",
+            "s. ➕ Add Subtask",
+            "t. 🏷️  Add Tag",
+            "p. 📁 Set Project",
+            "c. 📋 Add Checklist Item",
+            "r. ⏰ Start/Stop Timer",
+            "v. 👁️  View Details",
+            "Esc. ↩️  Back to List",
+        ];
+
+        let actions_list = List::new(
+            actions
+                .iter()
+                .map(|action| ListItem::new(*action))
+                .collect::<Vec<_>>(),
+        )
+        .block(Block::default().borders(Borders::ALL).title("Available Actions"))
+        .style(Style::default().fg(Color::White));
+
+        f.render_widget(actions_list, chunks[2]);
+
+        // Footer
+        let footer = Paragraph::new("Press key to select action • Esc: Back")
+            .style(Style::default().fg(Color::Gray))
+            .alignment(Alignment::Center);
+        f.render_widget(footer, chunks[3]);
+    }
+
+    fn draw_add_note(&self, f: &mut Frame, area: Rect, index: usize) {
+        let tasks = self.task_manager.get_active_tasks();
+        if index >= tasks.len() {
+            return;
+        }
+
+        let task = &tasks[index];
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(3), Constraint::Length(3), Constraint::Min(5), Constraint::Length(3)])
+            .split(area);
+
+        // Header
+        let header = Paragraph::new(format!("📝 Add Note - {}", task.description))
+            .style(Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD))
+            .alignment(Alignment::Center)
+            .block(Block::default().borders(Borders::ALL));
+        f.render_widget(header, chunks[0]);
+
+        // Input field
+        let input = Paragraph::new(format!("Note: {}", self.input_buffer))
+            .style(Style::default().fg(Color::White))
+            .block(Block::default().borders(Borders::ALL).title("Note Content"));
+        f.render_widget(input, chunks[1]);
+
+        // Instructions
+        let instructions = Paragraph::new("Type your note and press Enter to save")
+            .style(Style::default().fg(Color::Gray))
+            .alignment(Alignment::Center)
+            .wrap(Wrap { trim: true });
+        f.render_widget(instructions, chunks[2]);
+
+        // Footer
+        let footer = Paragraph::new("Enter: Save • Esc: Cancel")
+            .style(Style::default().fg(Color::Gray))
+            .alignment(Alignment::Center);
+        f.render_widget(footer, chunks[3]);
+    }
+
+    fn draw_add_subtask(&self, f: &mut Frame, area: Rect, index: usize) {
+        let tasks = self.task_manager.get_active_tasks();
+        if index >= tasks.len() {
+            return;
+        }
+
+        let task = &tasks[index];
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(3), Constraint::Length(3), Constraint::Min(5), Constraint::Length(3)])
+            .split(area);
+
+        // Header
+        let header = Paragraph::new(format!("➕ Add Subtask - {}", task.description))
+            .style(Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))
+            .alignment(Alignment::Center)
+            .block(Block::default().borders(Borders::ALL));
+        f.render_widget(header, chunks[0]);
+
+        // Input field
+        let input = Paragraph::new(format!("Subtask: {}", self.input_buffer))
+            .style(Style::default().fg(Color::White))
+            .block(Block::default().borders(Borders::ALL).title("Subtask Description"));
+        f.render_widget(input, chunks[1]);
+
+        // Instructions
+        let instructions = Paragraph::new("Type your subtask description and press Enter to add")
+            .style(Style::default().fg(Color::Gray))
+            .alignment(Alignment::Center)
+            .wrap(Wrap { trim: true });
+        f.render_widget(instructions, chunks[2]);
+
+        // Footer
+        let footer = Paragraph::new("Enter: Save • Esc: Cancel")
+            .style(Style::default().fg(Color::Gray))
+            .alignment(Alignment::Center);
+        f.render_widget(footer, chunks[3]);
+    }
+
+    fn draw_add_tag(&self, f: &mut Frame, area: Rect, index: usize) {
+        let tasks = self.task_manager.get_active_tasks();
+        if index >= tasks.len() {
+            return;
+        }
+
+        let task = &tasks[index];
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(3), Constraint::Length(3), Constraint::Min(5), Constraint::Length(3)])
+            .split(area);
+
+        // Header
+        let header = Paragraph::new(format!("🏷️ Add Tag - {}", task.description))
+            .style(Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD))
+            .alignment(Alignment::Center)
+            .block(Block::default().borders(Borders::ALL));
+        f.render_widget(header, chunks[0]);
+
+        // Input field
+        let input = Paragraph::new(format!("Tag: {}", self.input_buffer))
+            .style(Style::default().fg(Color::White))
+            .block(Block::default().borders(Borders::ALL).title("Tag Name"));
+        f.render_widget(input, chunks[1]);
+
+        // Instructions
+        let instructions = Paragraph::new("Type tag name and press Enter to add")
+            .style(Style::default().fg(Color::Gray))
+            .alignment(Alignment::Center)
+            .wrap(Wrap { trim: true });
+        f.render_widget(instructions, chunks[2]);
+
+        // Footer
+        let footer = Paragraph::new("Enter: Save • Esc: Cancel")
+            .style(Style::default().fg(Color::Gray))
+            .alignment(Alignment::Center);
+        f.render_widget(footer, chunks[3]);
+    }
+
+    fn draw_set_project(&self, f: &mut Frame, area: Rect, index: usize) {
+        let tasks = self.task_manager.get_active_tasks();
+        if index >= tasks.len() {
+            return;
+        }
+
+        let task = &tasks[index];
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(3), Constraint::Length(3), Constraint::Min(5), Constraint::Length(3)])
+            .split(area);
+
+        // Header
+        let header = Paragraph::new(format!("📁 Set Project - {}", task.description))
+            .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+            .alignment(Alignment::Center)
+            .block(Block::default().borders(Borders::ALL));
+        f.render_widget(header, chunks[0]);
+
+        // Input field
+        let input = Paragraph::new(format!("Project: {}", self.input_buffer))
+            .style(Style::default().fg(Color::White))
+            .block(Block::default().borders(Borders::ALL).title("Project Name"));
+        f.render_widget(input, chunks[1]);
+
+        // Instructions
+        let instructions = Paragraph::new("Type project name and press Enter to set")
+            .style(Style::default().fg(Color::Gray))
+            .alignment(Alignment::Center)
+            .wrap(Wrap { trim: true });
+        f.render_widget(instructions, chunks[2]);
+
+        // Footer
+        let footer = Paragraph::new("Enter: Save • Esc: Cancel")
+            .style(Style::default().fg(Color::Gray))
+            .alignment(Alignment::Center);
+        f.render_widget(footer, chunks[3]);
+    }
+
+    fn draw_set_due_date(&self, f: &mut Frame, area: Rect, index: usize) {
+        let tasks = self.task_manager.get_active_tasks();
+        if index >= tasks.len() {
+            return;
+        }
+
+        let task = &tasks[index];
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(3), Constraint::Length(3), Constraint::Min(5), Constraint::Length(3)])
+            .split(area);
+
+        // Header
+        let header = Paragraph::new(format!("📅 Set Due Date - {}", task.description))
+            .style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
+            .alignment(Alignment::Center)
+            .block(Block::default().borders(Borders::ALL));
+        f.render_widget(header, chunks[0]);
+
+        // Input field
+        let input = Paragraph::new(format!("Date (YYYY-MM-DD): {}", self.input_buffer))
+            .style(Style::default().fg(Color::White))
+            .block(Block::default().borders(Borders::ALL).title("Due Date"));
+        f.render_widget(input, chunks[1]);
+
+        // Instructions
+        let instructions = Paragraph::new("Enter date in YYYY-MM-DD format and press Enter")
+            .style(Style::default().fg(Color::Gray))
+            .alignment(Alignment::Center)
+            .wrap(Wrap { trim: true });
+        f.render_widget(instructions, chunks[2]);
+
+        // Footer
+        let footer = Paragraph::new("Enter: Save • Esc: Cancel")
+            .style(Style::default().fg(Color::Gray))
+            .alignment(Alignment::Center);
+        f.render_widget(footer, chunks[3]);
+    }
+
+    fn draw_add_checklist_item(&self, f: &mut Frame, area: Rect, index: usize) {
+        let tasks = self.task_manager.get_active_tasks();
+        if index >= tasks.len() {
+            return;
+        }
+
+        let task = &tasks[index];
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(3), Constraint::Length(3), Constraint::Min(5), Constraint::Length(3)])
+            .split(area);
+
+        // Header
+        let header = Paragraph::new(format!("📋 Add Checklist Item - {}", task.description))
+            .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
+            .alignment(Alignment::Center)
+            .block(Block::default().borders(Borders::ALL));
+        f.render_widget(header, chunks[0]);
+
+        // Input field
+        let input = Paragraph::new(format!("Item: {}", self.input_buffer))
+            .style(Style::default().fg(Color::White))
+            .block(Block::default().borders(Borders::ALL).title("Checklist Item"));
+        f.render_widget(input, chunks[1]);
+
+        // Instructions
+        let instructions = Paragraph::new("Type checklist item and press Enter to add")
+            .style(Style::default().fg(Color::Gray))
+            .alignment(Alignment::Center)
+            .wrap(Wrap { trim: true });
+        f.render_widget(instructions, chunks[2]);
+
+        // Footer
+        let footer = Paragraph::new("Enter: Save • Esc: Cancel")
+            .style(Style::default().fg(Color::Gray))
+            .alignment(Alignment::Center);
+        f.render_widget(footer, chunks[3]);
+    }
+
+    fn draw_board_view(&self, f: &mut Frame, area: Rect) {
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(3), Constraint::Min(10), Constraint::Length(3)])
+            .split(area);
+
+        // Header
+        let header = Paragraph::new("📋 Board View")
+            .style(Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))
+            .alignment(Alignment::Center)
+            .block(Block::default().borders(Borders::ALL));
+        f.render_widget(header, chunks[0]);
+
+        // Board content
+        let board_view = self.task_manager.get_board_view();
+        let mut board_text = Vec::new();
+
+        for (board_name, tasks) in board_view {
+            board_text.push(Line::from(vec![
+                Span::styled(format!("📂 {} ({})", board_name, tasks.len()),
+                             Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            ]));
+
+            if tasks.is_empty() {
+                board_text.push(Line::from("  (empty)"));
+            } else {
+                for task in tasks {
+                    let status = if task.done { "✅" } else { "⏳" };
+                    let priority_color = match task.priority {
+                        Priority::High => Color::Red,
+                        Priority::Medium => Color::Yellow,
+                        Priority::Low => Color::Green,
+                    };
+                    board_text.push(Line::from(vec![
+                        Span::styled(format!("  {} ", status), Style::default().fg(Color::Green)),
+                        Span::styled(&task.description, Style::default().fg(Color::White)),
+                        Span::styled(format!(" ({:?})", task.priority), Style::default().fg(priority_color)),
+                    ]));
+                }
+            }
+            board_text.push(Line::from(""));
+        }
+
+        let board_paragraph = Paragraph::new(Text::from(board_text))
+            .block(Block::default().borders(Borders::ALL).title("Kanban Boards"))
+            .wrap(Wrap { trim: true });
+        f.render_widget(board_paragraph, chunks[1]);
+
+        // Footer
+        let footer = Paragraph::new("Esc: Back to Main Menu")
+            .style(Style::default().fg(Color::Gray))
+            .alignment(Alignment::Center);
+        f.render_widget(footer, chunks[2]);
+    }
+
+    fn draw_calendar_view(&self, f: &mut Frame, area: Rect) {
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(3), Constraint::Min(10), Constraint::Length(3)])
+            .split(area);
+
+        // Header
+        let header = Paragraph::new("📅 Calendar View")
+            .style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
+            .alignment(Alignment::Center)
+            .block(Block::default().borders(Borders::ALL));
+        f.render_widget(header, chunks[0]);
+
+        // Calendar content
+        let calendar = self.task_manager.get_calendar_view();
+        let mut calendar_text = Vec::new();
+
+        for (date, tasks) in &calendar {
+            calendar_text.push(Line::from(vec![
+                Span::styled(format!("📆 {} ({})", date, tasks.len()),
+                             Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            ]));
+
+            for task in tasks {
+                let status = if task.done { "✅" } else { "⏳" };
+                let priority_color = match task.priority {
+                    Priority::High => Color::Red,
+                    Priority::Medium => Color::Yellow,
+                    Priority::Low => Color::Green,
+                };
+                calendar_text.push(Line::from(vec![
+                    Span::styled(format!("  {} ", status), Style::default().fg(Color::Green)),
+                    Span::styled(&task.description, Style::default().fg(Color::White)),
+                    Span::styled(format!(" ({:?})", task.priority), Style::default().fg(priority_color)),
+                ]));
+            }
+            calendar_text.push(Line::from(""));
+        }
+
+        if calendar.is_empty() {
+            calendar_text.push(Line::from("No tasks with due dates found"));
+        }
+
+        let calendar_paragraph = Paragraph::new(Text::from(calendar_text))
+            .block(Block::default().borders(Borders::ALL).title("Tasks by Due Date"))
+            .wrap(Wrap { trim: true });
+        f.render_widget(calendar_paragraph, chunks[1]);
+
+        // Footer
+        let footer = Paragraph::new("Esc: Back to Main Menu")
+            .style(Style::default().fg(Color::Gray))
+            .alignment(Alignment::Center);
+        f.render_widget(footer, chunks[2]);
+    }
+
+    fn draw_timeline_view(&self, f: &mut Frame, area: Rect) {
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(3), Constraint::Min(10), Constraint::Length(3)])
+            .split(area);
+
+        // Header
+        let header = Paragraph::new("⏰ Timeline View")
+            .style(Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD))
+            .alignment(Alignment::Center)
+            .block(Block::default().borders(Borders::ALL));
+        f.render_widget(header, chunks[0]);
+
+        // Timeline content
+        let timeline = self.task_manager.get_timeline_view();
+        let mut timeline_text = Vec::new();
+
+        for task in &timeline {
+            let status = if task.done { "✅" } else { "⏳" };
+            let priority_color = match task.priority {
+                Priority::High => Color::Red,
+                Priority::Medium => Color::Yellow,
+                Priority::Low => Color::Green,
+            };
+            let time_spent = if task.time_spent > 0 {
+                format!(" ({})", format_time(task.time_spent))
+            } else {
+                String::new()
+            };
+
+            timeline_text.push(Line::from(vec![
+                Span::styled(format!("{} ", task.created_at.format("%Y-%m-%d %H:%M")),
+                             Style::default().fg(Color::Gray)),
+                Span::styled(format!("{} ", status), Style::default().fg(Color::Green)),
+                Span::styled(&task.description, Style::default().fg(Color::White)),
+                Span::styled(format!(" ({:?})", task.priority), Style::default().fg(priority_color)),
+                Span::styled(time_spent, Style::default().fg(Color::Yellow)),
+            ]));
+        }
+
+        if timeline.is_empty() {
+            timeline_text.push(Line::from("No tasks found"));
+        }
+
+        let timeline_paragraph = Paragraph::new(Text::from(timeline_text))
+            .block(Block::default().borders(Borders::ALL).title("Tasks by Creation Date"))
+            .wrap(Wrap { trim: true });
+        f.render_widget(timeline_paragraph, chunks[1]);
+
+        // Footer
+        let footer = Paragraph::new("Esc: Back to Main Menu")
+            .style(Style::default().fg(Color::Gray))
+            .alignment(Alignment::Center);
+        f.render_widget(footer, chunks[2]);
+    }
+
+    fn draw_focus_view(&self, f: &mut Frame, area: Rect) {
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(3), Constraint::Length(3), Constraint::Min(10), Constraint::Length(3)])
+            .split(area);
+
+        // Header
+        let header = Paragraph::new("🎯 Focus View")
+            .style(Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD))
+            .alignment(Alignment::Center)
+            .block(Block::default().borders(Borders::ALL));
+        f.render_widget(header, chunks[0]);
+
+        // Input field
+        let input = Paragraph::new(format!("Focus on: {}", self.input_buffer))
+            .style(Style::default().fg(Color::White))
+            .block(Block::default().borders(Borders::ALL).title("Tag/Project/Board"));
+        f.render_widget(input, chunks[1]);
+
+        // Focus content
+        let focus_tasks = if !self.input_buffer.is_empty() {
+            self.task_manager.get_focus_view(&self.input_buffer)
+        } else {
+            Vec::new()
+        };
+
+        let mut focus_text = Vec::new();
+        if !self.input_buffer.is_empty() {
+            focus_text.push(Line::from(vec![
+                Span::styled(format!("Found {} tasks", focus_tasks.len()),
+                             Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            ]));
+            focus_text.push(Line::from(""));
+
+            for task in &focus_tasks {
+                let status = if task.done { "✅" } else { "⏳" };
+                let priority_color = match task.priority {
+                    Priority::High => Color::Red,
+                    Priority::Medium => Color::Yellow,
+                    Priority::Low => Color::Green,
+                };
+                focus_text.push(Line::from(vec![
+                    Span::styled(format!("{} ", status), Style::default().fg(Color::Green)),
+                    Span::styled(&task.description, Style::default().fg(Color::White)),
+                    Span::styled(format!(" ({:?})", task.priority), Style::default().fg(priority_color)),
+                ]));
+            }
+        } else {
+            focus_text.push(Line::from("Enter a tag, project, or board name to focus on"));
+        }
+
+        let focus_paragraph = Paragraph::new(Text::from(focus_text))
+            .block(Block::default().borders(Borders::ALL).title("Focused Tasks"))
+            .wrap(Wrap { trim: true });
+        f.render_widget(focus_paragraph, chunks[2]);
+
+        // Footer
+        let footer = Paragraph::new("Enter: Search • Esc: Back to Main Menu")
+            .style(Style::default().fg(Color::Gray))
+            .alignment(Alignment::Center);
+        f.render_widget(footer, chunks[3]);
+    }
+
+    fn draw_export_view(&self, f: &mut Frame, area: Rect) {
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(3), Constraint::Min(10), Constraint::Length(3)])
+            .split(area);
+
+        // Header
+        let header = Paragraph::new("💾 Export Data")
+            .style(Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))
+            .alignment(Alignment::Center)
+            .block(Block::default().borders(Borders::ALL));
+        f.render_widget(header, chunks[0]);
+
+        // Export options
+        let export_options = vec![
+            "1. 📄 Export as CSV",
+            "2. 📋 Export as JSON",
+        ];
+
+        let export_list = List::new(
+            export_options
+                .iter()
+                .enumerate()
+                .map(|(i, option)| {
+                    let style = if i == self.selected_export {
+                        Style::default().fg(Color::Black).bg(Color::White)
+                    } else {
+                        Style::default().fg(Color::White)
+                    };
+                    ListItem::new(Line::from(vec![
+                        Span::styled(*option, style),
+                    ]))
+                })
+                .collect::<Vec<_>>(),
+        )
+        .block(Block::default().borders(Borders::ALL).title("Export Format"))
+        .highlight_style(Style::default().bg(Color::Blue));
+
+        f.render_widget(export_list, chunks[1]);
+
+        // Footer
+        let footer = Paragraph::new("Use number keys to select format • Esc: Back")
+            .style(Style::default().fg(Color::Gray))
+            .alignment(Alignment::Center);
+        f.render_widget(footer, chunks[2]);
+    }
+
     fn draw_help(&self, f: &mut Frame, area: Rect) {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
@@ -437,20 +1409,28 @@ impl App {
         // Help content
         let help_text = vec![
             Line::from("🧭 Navigation:"),
-            Line::from("  • Use number keys in main menu"),
-            Line::from("  • Arrow keys or j/k to navigate lists"),
-            Line::from("  • Enter to select/view details"),
-            Line::from("  • Esc to go back"),
+            Line::from("  • Number keys: Select menu options"),
+            Line::from("  • Arrow keys/j/k: Navigate lists"),
+            Line::from("  • Enter: Select/confirm"),
+            Line::from("  • Esc: Go back/cancel"),
             Line::from(""),
-            Line::from("⚡ Actions:"),
+            Line::from("⚡ Task List Actions:"),
+            Line::from("  • Enter: Open task actions menu"),
             Line::from("  • d: Mark task as done"),
             Line::from("  • a: Add new task"),
-            Line::from("  • q: Quit application"),
+            Line::from("  • n: Add note to selected task"),
+            Line::from("  • s: Add subtask to selected task"),
+            Line::from("  • t: Add tag to selected task"),
+            Line::from("  • p: Set project for selected task"),
+            Line::from("  • c: Add checklist item"),
+            Line::from("  • /: Filter/search tasks"),
             Line::from(""),
             Line::from("🎨 Interface:"),
-            Line::from("  • Color-coded priorities (🔴 High, 🟡 Medium, 🟢 Low)"),
-            Line::from("  • Status icons (✅ Done, ⏳ In Progress)"),
-            Line::from("  • Clean, modern terminal interface"),
+            Line::from("  • 🔴 High priority (red)"),
+            Line::from("  • 🟡 Medium priority (yellow)"),
+            Line::from("  • 🟢 Low priority (green)"),
+            Line::from("  • ✅ Done tasks"),
+            Line::from("  • ⏳ In progress tasks"),
         ];
 
         let help_paragraph = Paragraph::new(Text::from(help_text))
