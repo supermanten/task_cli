@@ -5,37 +5,69 @@ pub fn display_tasks(tasks: &[&Task]) {
     if tasks.is_empty() {
         println!("No tasks found.");
     } else {
-        println!("{:<5} {:<12} {:<15} {:<50} {:<20} {:<10}",
-                 "ID", "Status", "Priority", "Description", "Created At", "Time Spent");
-        println!("{}", "-".repeat(115));
+        println!("{:<5} {:<5} {:<15} {:<40} {:<15} {:<15} {:<10}",
+                 "ID", "Status", "Priority", "Description", "Project", "Due Date", "Time");
+        println!("{}", "-".repeat(120));
         for task in tasks {
-            let status = if task.done { "✓ Done".green() } else { "✗ Todo".yellow() };
+            let status = if task.done { "✓".green() } else { "✗".yellow() };
             let priority = match task.priority {
                 Priority::High => "High".red().bold(),
                 Priority::Medium => "Medium".yellow(),
                 Priority::Low => "Low".green(),
             };
-            let created_at = task.created_at.format("%Y-%m-%d %H:%M");
+            let project = task.project.as_ref().map(|s| s.as_str()).unwrap_or("-");
+            let due_date = task.due_date.map(|d| d.format("%m-%d").to_string()).unwrap_or("-".to_string());
             let time_spent = format_time(task.time_spent);
+
             let mut description = task.description.clone();
             if !task.subtasks.is_empty() {
                 let done_count = task.subtasks.iter().filter(|st| st.done).count();
                 description = format!("{} [{}/{}]", description, done_count, task.subtasks.len());
             }
-            println!("{:<5} {:<12} {:<15} {:<50} {:<20} {:<10}",
+            if !task.checklists.is_empty() {
+                let done_count = task.checklists.iter().filter(|ci| ci.done).count();
+                description = format!("{} ☐[{}/{}]", description, done_count, task.checklists.len());
+            }
+
+            println!("{:<5} {:<5} {:<15} {:<40} {:<15} {:<15} {:<10}",
                      task.id.to_string().bold(),
                      status,
                      priority,
-                     description,
-                     created_at,
+                     description.chars().take(38).collect::<String>(),
+                     project.chars().take(13).collect::<String>(),
+                     due_date,
                      time_spent);
+
+            // Show tags if any
+            if !task.tags.is_empty() {
+                println!("      Tags: {}", task.tags.join(", ").cyan());
+            }
+
+            // Show board if not default
+            if let Some(board) = &task.board {
+                if board != "Todo" {
+                    println!("      Board: {}", board.magenta());
+                }
+            }
+
+            // Show notes
             if let Some(note) = &task.notes {
                 println!("      Note: {}", note.dimmed());
             }
+
+            // Show subtasks
             if !task.subtasks.is_empty() {
                 for subtask in &task.subtasks {
                     let sub_status = if subtask.done { "  ✓".green() } else { "  ✗".yellow() };
                     println!("      {} {}", sub_status, subtask.description.dimmed());
+                }
+            }
+
+            // Show checklists
+            if !task.checklists.is_empty() {
+                for checklist in &task.checklists {
+                    let check_status = if checklist.done { "  ☑".green() } else { "  ☐".yellow() };
+                    println!("      {} {}", check_status, checklist.description.dimmed());
                 }
             }
         }
@@ -105,5 +137,100 @@ fn format_time(seconds: u64) -> String {
         format!("{}m {}s", minutes, secs)
     } else {
         format!("{}s", secs)
+    }
+}
+
+pub fn display_calendar(calendar: &[(String, Vec<&Task>)]) {
+    if calendar.is_empty() {
+        println!("📅 No tasks with due dates found.");
+        return;
+    }
+
+    println!("📅 Calendar View");
+    println!("================");
+
+    for (date, tasks) in calendar {
+        println!("\n📆 {} ({})", date, tasks.len());
+        for task in tasks {
+            let status = if task.done { "✓".green() } else { "✗".yellow() };
+            let priority = match task.priority {
+                Priority::High => "🔴",
+                Priority::Medium => "🟡",
+                Priority::Low => "🟢",
+            };
+            println!("  {} {} {}", status, priority, task.description);
+        }
+    }
+}
+
+pub fn display_timeline(tasks: &[&Task]) {
+    if tasks.is_empty() {
+        println!("⏰ No tasks found.");
+        return;
+    }
+
+    println!("⏰ Timeline View");
+    println!("================");
+
+    for task in tasks {
+        let status = if task.done { "✓".green() } else { "✗".yellow() };
+        let created = task.created_at.format("%Y-%m-%d %H:%M");
+        let time_spent = if task.time_spent > 0 {
+            format!(" ({})", format_time(task.time_spent).cyan())
+        } else {
+            String::new()
+        };
+        println!("{} {} - {}{}", created, status, task.description, time_spent);
+    }
+}
+
+pub fn display_focus(context: &str, tasks: &[&Task]) {
+    if tasks.is_empty() {
+        println!("🎯 No tasks found for focus '{}'.", context);
+        return;
+    }
+
+    println!("🎯 Focus View: {}", context);
+    println!("====================");
+    println!("Found {} tasks", tasks.len());
+
+    for task in tasks {
+        let status = if task.done { "✓".green() } else { "✗".yellow() };
+        let priority = match task.priority {
+            Priority::High => "🔴",
+            Priority::Medium => "🟡",
+            Priority::Low => "🟢",
+        };
+        let project = task.project.as_ref().map(|p| format!(" [{}]", p)).unwrap_or_default();
+        println!("{} {} {}{}", status, priority, task.description, project);
+    }
+}
+
+pub fn display_board_view(board_view: &[(String, Vec<&Task>)]) {
+    println!("📋 Board View");
+    println!("=============");
+
+    for (board, tasks) in board_view {
+        println!("\n📂 {} ({})", board.bold(), tasks.len());
+
+        if tasks.is_empty() {
+            println!("  (empty)");
+            continue;
+        }
+
+        for task in tasks {
+            let status = if task.done { "✓".green() } else { "✗".yellow() };
+            let priority = match task.priority {
+                Priority::High => "🔴",
+                Priority::Medium => "🟡",
+                Priority::Low => "🟢",
+            };
+            let tags = if !task.tags.is_empty() {
+                format!(" [{}]", task.tags.join(", "))
+            } else {
+                String::new()
+            };
+            println!("  {} {} {}{}", status, priority, task.description, tags);
+        }
     }
 }

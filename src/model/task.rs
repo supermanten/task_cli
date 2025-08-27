@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum Priority {
     Low,
     Medium,
@@ -10,6 +10,13 @@ pub enum Priority {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SubTask {
+    pub id: u32,
+    pub description: String,
+    pub done: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CheckItem {
     pub id: u32,
     pub description: String,
     pub done: bool,
@@ -27,4 +34,9 @@ pub struct Task {
     pub subtasks: Vec<SubTask>,
     pub time_spent: u64, // in seconds
     pub timer_start: Option<DateTime<Utc>>,
+    pub project: Option<String>,
+    pub due_date: Option<DateTime<Utc>>,
+    pub tags: Vec<String>,
+    pub board: Option<String>,
+    pub checklists: Vec<CheckItem>,
 }

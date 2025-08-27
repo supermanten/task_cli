@@ -12,9 +12,10 @@ fn main() {
     let cli = Cli::parse();
     let mut task_manager = TaskManager::new();
 
-    match cli.command {
-        Some(command) => handle_command(command, &mut task_manager),
-        None => show_welcome(),
+    if let Some(command) = cli.command {
+        handle_command(command, &mut task_manager);
+    } else {
+        show_welcome();
     }
 }
 
