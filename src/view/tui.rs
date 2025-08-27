@@ -196,22 +196,7 @@ impl App {
                     self.selected_task = max_index;
                 }
             }
-            KeyCode::PageDown => {
-                // Jump down by 5 items
-                self.selected_task = (self.selected_task + 5).min(max_index);
-            }
-            KeyCode::PageUp => {
-                // Jump up by 5 items
-                self.selected_task = self.selected_task.saturating_sub(5);
-            }
-            KeyCode::Home => {
-                // Go to first item
-                self.selected_task = 0;
-            }
-            KeyCode::End => {
-                // Go to last item
-                self.selected_task = max_index;
-            }
+
             KeyCode::Enter => {
                 if !tasks.is_empty() {
                     self.state = AppState::TaskActions(self.selected_task);
@@ -850,7 +835,7 @@ impl App {
         f.render_widget(task_list, chunks[1]);
 
         // Footer
-        let footer = Paragraph::new("↑/↓/j/k: Navigate • PgUp/PgDn: Jump • Home/End: First/Last • Enter: Actions • d: Done • a: Add • n: Note • s: Subtask • t: Tag • p: Project • c: Checklist • /: Filter • Esc: Back")
+        let footer = Paragraph::new("↑/↓/j/k: Navigate • Enter: Actions • d: Done • a: Add • n: Note • s: Subtask • t: Tag • p: Project • c: Checklist • /: Filter • Esc: Back")
             .style(Style::default().fg(Color::Gray))
             .alignment(Alignment::Center)
             .wrap(Wrap { trim: true });
