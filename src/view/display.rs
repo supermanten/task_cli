@@ -56,6 +56,26 @@ pub fn display_task_deleted(id: u32) {
 
 pub fn display_task_not_found(id: u32) {
     println!("{} Task with ID {} not found.", "✗".red(), id.to_string().bold());
+    println!("💡 Tip: Use 'task_manager list' to see all available tasks.");
+}
+
+pub fn display_invalid_priority() {
+    println!("{} Invalid priority. Use: low, medium, or high.", "⚠".yellow());
+}
+
+pub fn display_no_tasks_for_action() {
+    println!("{} No tasks available for this action.", "ℹ".blue());
+    println!("💡 Tip: Add a task first with 'task_manager add \"Your task\"'");
+}
+
+pub fn display_timer_already_running(id: u32) {
+    println!("{} Timer is already running for task {}.", "⚠".yellow(), id.to_string().bold());
+    println!("💡 Tip: Stop the current timer first with 'task_manager stop {}'", id);
+}
+
+pub fn display_no_timer_running(id: u32) {
+    println!("{} No timer is running for task {}.", "⚠".yellow(), id.to_string().bold());
+    println!("💡 Tip: Start a timer first with 'task_manager start {}'", id);
 }
 
 pub fn display_note_added(id: u32) {
