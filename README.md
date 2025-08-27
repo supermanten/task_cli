@@ -99,6 +99,7 @@ cargo run -- board show
 # Add checklist items
 cargo run -- checklist 1 "Design database schema"
 cargo run -- checklist 1 "Implement JWT tokens"
+cargo run -- check 1 1  # Mark first checklist item as done
 
 # Use different views
 cargo run -- calendar
@@ -107,6 +108,42 @@ cargo run -- focus urgent
 
 # Export your data
 cargo run -- export csv tasks.csv
+```
+
+### Complete Workflow Example
+```bash
+# 1. Set up a project
+cargo run -- add "Website Redesign Project" --priority high -P "Frontend" --tags "web,design" --due 2024-03-01
+
+# 2. Create a development board
+cargo run -- board add "Development"
+
+# 3. Break down the project with subtasks and checklists
+cargo run -- subtask 1 "Create wireframes"
+cargo run -- subtask 1 "Design mockups"
+cargo run -- checklist 1 "Set up development environment"
+cargo run -- checklist 1 "Install necessary dependencies"
+cargo run -- checklist 1 "Configure build tools"
+
+# 4. Move to development board
+cargo run -- board move 1 "Development"
+
+# 5. Start working and track time
+cargo run -- start 1
+# ... work for some time ...
+cargo run -- stop 1
+
+# 6. View progress in different ways
+cargo run -- list --project "Frontend"
+cargo run -- focus "Development"
+cargo run -- calendar
+
+# 7. Mark checklist items as complete
+cargo run -- check 1 1
+cargo run -- check 1 2
+
+# 8. Export project data
+cargo run -- export csv frontend_tasks.csv
 ```
 
 ## 📖 Usage Guide
@@ -154,9 +191,12 @@ cargo run -- project <task_id> "Project Name"
 # Due dates
 cargo run -- due <task_id> 2024-02-15
 
-# Checklists
-cargo run -- checklist <task_id> "Checklist item"
-cargo run -- check <task_id> <item_id>  # Toggle checklist item
+# Checklists - Complete workflow
+cargo run -- checklist <task_id> "Design homepage layout"
+cargo run -- checklist <task_id> "Implement responsive design"
+cargo run -- checklist <task_id> "Add user authentication"
+cargo run -- check <task_id> <item_id>  # Toggle checklist item (e.g., check 1 1)
+cargo run -- list  # View checklist progress [completed/total]
 ```
 
 #### Board Management
@@ -172,23 +212,35 @@ cargo run -- board move <task_id> "Board Name"
 ```bash
 # Filter by priority
 cargo run -- list --priority high
+cargo run -- list --priority medium
+cargo run -- list --priority low
 
 # Filter by project
 cargo run -- list --project "Backend"
+cargo run -- list --project "Frontend"
 
-# Search by description
+# Search by description (partial match)
 cargo run -- list --description "meeting"
+cargo run -- list --description "database"
 
 # Filter by due date
-cargo run -- list --due today
-cargo run -- list --due week
-cargo run -- list --due overdue
+cargo run -- list --due today         # Due today
+cargo run -- list --due week          # Due this week
+cargo run -- list --due overdue       # Past due date
 
 # Filter by tag
 cargo run -- list --tag urgent
+cargo run -- list --tag frontend
+cargo run -- list --tag bug
 
 # Filter by board
+cargo run -- list --board "Todo"
 cargo run -- list --board "In Progress"
+cargo run -- list --board "Done"
+
+# Combine filters (use multiple options)
+cargo run -- list --priority high --project "Backend"
+cargo run -- list --tag urgent --due today
 ```
 
 #### Special Views
@@ -207,9 +259,13 @@ cargo run -- focus "In Progress"
 
 #### Data Management
 ```bash
-# Export data
-cargo run -- export csv tasks.csv
-cargo run -- export json tasks.json
+# Export data in different formats
+cargo run -- export csv tasks.csv     # CSV format with all metadata
+cargo run -- export json tasks.json   # JSON format for backup/integration
+
+# Export examples
+cargo run -- export csv project_tasks.csv
+cargo run -- export json backup_$(date +%Y%m%d).json
 ```
 
 #### Help & Information
@@ -236,6 +292,55 @@ This provides a menu-driven interface where you can:
 - Select tasks from lists
 - Access all features through simple menus
 - No need to remember command syntax
+
+**Interactive Mode Features:**
+- **Add Task**: Guided task creation with all options (priority, project, tags, due date)
+- **Task Management**: Select from visual task lists
+- **Board Operations**: Create and manage boards interactively
+- **Checklist Management**: Add and toggle checklist items
+- **Time Tracking**: Start/stop timers with visual feedback
+- **Export Data**: Choose format and filename interactively
+
+### Checklists - Complete Guide
+Checklists allow you to break down complex tasks into manageable steps:
+
+```bash
+# Create a task with checklist
+cargo run -- add "Deploy application" --priority high -P "DevOps"
+
+# Add checklist items
+cargo run -- checklist 1 "Update dependencies"
+cargo run -- checklist 1 "Run tests"
+cargo run -- checklist 1 "Build production assets"
+cargo run -- checklist 1 "Deploy to staging"
+cargo run -- checklist 1 "Run smoke tests"
+cargo run -- checklist 1 "Deploy to production"
+
+# Mark items as complete
+cargo run -- check 1 1  # Complete "Update dependencies"
+cargo run -- check 1 2  # Complete "Run tests"
+
+# View progress
+cargo run -- list  # Shows [2/6] completed
+```
+
+### Advanced Board Management
+```bash
+# Create multiple boards for different workflows
+cargo run -- board add "Backlog"
+cargo run -- board add "Sprint 1"
+cargo run -- board add "Review"
+cargo run -- board add "Done"
+
+# Move tasks through workflow
+cargo run -- board move 1 "Sprint 1"
+cargo run -- board move 2 "Review"
+cargo run -- board move 3 "Done"
+
+# View board status
+cargo run -- board show
+cargo run -- focus "Sprint 1"
+```
 
 ## 🎨 Features in Detail
 
@@ -503,19 +608,100 @@ Each task contains the following fields:
 
 ## 🎯 Advanced Use Cases
 
-### Project Management
+### Complete Project Management Workflow
 ```bash
-# Set up a new project
-cargo run -- add "Plan project architecture" --priority high -P "Web App" --tags "planning,architecture"
-cargo run -- add "Design database schema" --priority high -P "Web App" --tags "database,design"
-cargo run -- add "Implement user authentication" --priority medium -P "Web App" --tags "backend,security"
+# 1. Set up project structure
+cargo run -- board add "Backlog"
+cargo run -- board add "Sprint 1"
+cargo run -- board add "Code Review"
+cargo run -- board add "Testing"
+cargo run -- board add "Deployed"
 
-# View project tasks
-cargo run -- list --project "Web App"
+# 2. Create project tasks with full metadata
+cargo run -- add "Design system architecture" --priority high -P "E-commerce Platform" --tags "architecture,planning" --due 2024-02-01
+cargo run -- add "Implement user authentication" --priority high -P "E-commerce Platform" --tags "backend,security" --due 2024-02-15
+cargo run -- add "Create product catalog UI" --priority medium -P "E-commerce Platform" --tags "frontend,ui" --due 2024-02-20
+cargo run -- add "Set up payment processing" --priority high -P "E-commerce Platform" --tags "backend,payment" --due 2024-02-25
 
-# Move to development board
-cargo run -- board move 1 "In Progress"
-cargo run -- board move 2 "In Progress"
+# 3. Add detailed checklists for complex tasks
+cargo run -- checklist 2 "Design database schema"
+cargo run -- checklist 2 "Implement JWT authentication"
+cargo run -- checklist 2 "Add password hashing"
+cargo run -- checklist 2 "Create user registration API"
+cargo run -- checklist 2 "Add login/logout endpoints"
+
+# 4. Move tasks through workflow
+cargo run -- board move 1 "Sprint 1"
+cargo run -- board move 2 "Sprint 1"
+cargo run -- board move 3 "Backlog"
+
+# 5. Track time and progress
+cargo run -- start 2
+# ... work for some time ...
+cargo run -- stop 2
+cargo run -- check 2 1  # Mark first checklist item as done
+
+# 6. View project from multiple perspectives
+cargo run -- list --project "E-commerce Platform"
+cargo run -- focus "Sprint 1"
+cargo run -- calendar
+cargo run -- board show
+
+# 7. Export project data
+cargo run -- export csv "ecommerce_sprint1_$(date +%Y%m%d).csv"
+```
+
+### Personal Productivity Workflow
+```bash
+# Morning routine setup
+cargo run -- add "Exercise" --priority medium --tags "health,personal" --due today
+cargo run -- add "Read industry news" --priority low --tags "learning,personal" --due today
+cargo run -- add "Plan day" --priority high --tags "planning,personal" --due today
+
+# Work tasks
+cargo run -- add "Review pull requests" --priority high --tags "work,urgent" --due today
+cargo run -- add "Update documentation" --priority medium --tags "work,documentation" --due 2024-02-05
+cargo run -- add "Team meeting prep" --priority high --tags "work,meeting" --due today
+
+# Filter by context
+cargo run -- focus work
+cargo run -- focus personal
+cargo run -- list --due today
+cargo run -- list --tag urgent
+
+# Time tracking for focused work
+cargo run -- start 4  # Start working on pull requests
+# ... work session ...
+cargo run -- stop 4
+cargo run -- done 4
+```
+
+### Team Collaboration Workflow
+```bash
+# Set up team project
+cargo run -- board add "Sprint Planning"
+cargo run -- board add "Development"
+cargo run -- board add "QA Testing"
+cargo run -- board add "Ready for Release"
+
+# Assign tasks to team members (using notes for assignment)
+cargo run -- add "Implement shopping cart" --priority high -P "Team Project" --tags "frontend,feature" --due 2024-02-10
+cargo run -- note 1 "Assigned to: @john_doe"
+cargo run -- add "Write API documentation" --priority medium -P "Team Project" --tags "documentation,api" --due 2024-02-12
+cargo run -- note 2 "Assigned to: @jane_smith"
+
+# Track progress through boards
+cargo run -- board move 1 "Development"
+cargo run -- board move 2 "Development"
+
+# Daily standup preparation
+cargo run -- list --project "Team Project"
+cargo run -- board show
+cargo run -- focus "Development"
+
+# Sprint review
+cargo run -- list --due this-week
+cargo run -- export csv "sprint_review_$(date +%Y%m%d).csv"
 ```
 
 ### Sprint Planning
@@ -559,6 +745,134 @@ If you encounter any issues or have questions:
 3. Try interactive mode: `cargo run -- interactive`
 4. Review the [advanced use cases](#-advanced-use-cases)
 5. Create an issue in the repository
+
+### All Command Combinations
+
+#### Task Creation with All Options
+```bash
+# Minimal task
+cargo run -- add "Simple task"
+
+# Full-featured task
+cargo run -- add "Complex task" --priority high -P "Project Name" --tags "tag1,tag2,tag3" --due 2024-02-15
+
+# Task with checklist from start
+cargo run -- add "Setup project" --priority high
+cargo run -- checklist 1 "Install dependencies"
+cargo run -- checklist 1 "Configure environment"
+cargo run -- checklist 1 "Initialize repository"
+```
+
+#### Complete Task Lifecycle
+```bash
+# 1. Create task
+cargo run -- add "Develop feature" --priority high -P "App" --tags "feature,frontend"
+
+# 2. Add metadata
+cargo run -- note 1 "Feature request from client"
+cargo run -- due 1 2024-02-10
+cargo run -- tag 1 "client-request"
+
+# 3. Break down with checklist
+cargo run -- checklist 1 "Design component"
+cargo run -- checklist 1 "Implement logic"
+cargo run -- checklist 1 "Add tests"
+cargo run -- checklist 1 "Code review"
+
+# 4. Move through workflow
+cargo run -- board move 1 "In Progress"
+
+# 5. Track time
+cargo run -- start 1
+# ... work ...
+cargo run -- stop 1
+
+# 6. Update progress
+cargo run -- check 1 1  # Complete design
+cargo run -- check 1 2  # Complete implementation
+
+# 7. Move to next stage
+cargo run -- board move 1 "Code Review"
+
+# 8. Finalize
+cargo run -- done 1
+cargo run -- board move 1 "Done"
+```
+
+#### Advanced Query Combinations
+```bash
+# Multiple filters
+cargo run -- list --priority high --project "Backend" --tag urgent
+cargo run -- list --due today --board "In Progress"
+cargo run -- list --project "Frontend" --tag "bug" --priority high
+
+# Search and filter
+cargo run -- list --description "database" --priority high
+cargo run -- list --description "api" --due week
+
+# Complex project view
+cargo run -- list --project "Web App" --board "Sprint 1"
+cargo run -- focus "Web App"
+cargo run -- calendar
+```
+
+#### Board and Workflow Management
+```bash
+# Complete workflow setup
+cargo run -- board add "Ideas"
+cargo run -- board add "Backlog"
+cargo run -- board add "Sprint 1"
+cargo run -- board add "In Development"
+cargo run -- board add "Code Review"
+cargo run -- board add "Testing"
+cargo run -- board add "Ready for Release"
+cargo run -- board add "Released"
+
+# Move tasks through complete workflow
+cargo run -- board move 1 "Backlog"
+cargo run -- board move 1 "Sprint 1"
+cargo run -- board move 1 "In Development"
+cargo run -- board move 1 "Code Review"
+cargo run -- board move 1 "Testing"
+cargo run -- board move 1 "Ready for Release"
+cargo run -- board move 1 "Released"
+```
+
+#### Time Tracking Workflows
+```bash
+# Daily time tracking
+cargo run -- start 1
+# ... morning work ...
+cargo run -- stop 1
+cargo run -- start 2
+# ... afternoon work ...
+cargo run -- stop 2
+
+# Project time analysis
+cargo run -- list --project "Backend"  # View time spent on backend tasks
+cargo run -- export csv time_analysis.csv  # Export for analysis
+
+# Focus session
+cargo run -- focus "urgent"
+cargo run -- start 3
+# ... focused work session ...
+cargo run -- stop 3
+```
+
+#### Data Management Workflows
+```bash
+# Backup workflow
+cargo run -- export json "backup_$(date +%Y%m%d_%H%M%S).json"
+
+# Project handover
+cargo run -- list --project "Client Project" --board "Done"
+cargo run -- export csv "client_project_final.csv"
+
+# Sprint review
+cargo run -- list --board "Sprint 1"
+cargo run -- export csv "sprint1_review.csv"
+cargo run -- board show
+```
 
 ### Feature Requests
 We welcome feature requests! The current architecture supports easy extension for:
