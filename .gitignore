@@ -1,1 +1,7 @@
 /target
+
+# Task data files
+tasks.json
+boards.json
+*.csv
+tasks_export.csv

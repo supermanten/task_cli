@@ -26,6 +26,7 @@ impl TaskManager {
         }
     }
 
+    #[allow(dead_code)]
     pub fn add_task(&mut self, description: String, priority: Priority) {
         let id = self.tasks.len() as u32 + 1;
         let created_at = Utc::now();

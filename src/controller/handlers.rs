@@ -276,14 +276,33 @@ fn run_interactive_mode(task_manager: &mut TaskManager) {
         let selection = Select::new()
             .with_prompt("Choose an action")
             .items(&options)
-            .interact()
-            .unwrap();
+            .interact();
+
+        let selection = match selection {
+            Ok(s) => s,
+            Err(_) => {
+                println!("Interactive mode requires a terminal. Please use command-line arguments instead.");
+                return;
+            }
+        };
 
         match selection {
             0 => {
-                let description: String = Input::new().with_prompt("Task description").interact_text().unwrap();
+                let description: String = match Input::new().with_prompt("Task description").interact_text() {
+                    Ok(desc) => desc,
+                    Err(_) => {
+                        println!("Interactive mode requires a terminal. Please use command-line arguments instead.");
+                        return;
+                    }
+                };
                 let priority_options = vec!["Low", "Medium", "High"];
-                let priority_idx = Select::new().with_prompt("Priority").items(&priority_options).interact().unwrap();
+                let priority_idx = match Select::new().with_prompt("Priority").items(&priority_options).interact() {
+                    Ok(idx) => idx,
+                    Err(_) => {
+                        println!("Interactive mode requires a terminal. Please use command-line arguments instead.");
+                        return;
+                    }
+                };
                 let priority = match priority_idx {
                     0 => Priority::Low,
                     1 => Priority::Medium,
@@ -291,10 +310,22 @@ fn run_interactive_mode(task_manager: &mut TaskManager) {
                     _ => Priority::Medium,
                 };
 
-                let project: String = Input::new().with_prompt("Project (optional)").allow_empty(true).interact_text().unwrap();
+                let project: String = match Input::new().with_prompt("Project (optional)").allow_empty(true).interact_text() {
+                    Ok(proj) => proj,
+                    Err(_) => {
+                        println!("Interactive mode requires a terminal. Please use command-line arguments instead.");
+                        return;
+                    }
+                };
                 let project = if project.is_empty() { None } else { Some(project) };
 
-                let tags: String = Input::new().with_prompt("Tags (comma-separated, optional)").allow_empty(true).interact_text().unwrap();
+                let tags: String = match Input::new().with_prompt("Tags (comma-separated, optional)").allow_empty(true).interact_text() {
+                    Ok(t) => t,
+                    Err(_) => {
+                        println!("Interactive mode requires a terminal. Please use command-line arguments instead.");
+                        return;
+                    }
+                };
                 let tags_vec = if tags.is_empty() {
                     Vec::new()
                 } else {
@@ -317,7 +348,13 @@ fn run_interactive_mode(task_manager: &mut TaskManager) {
                     continue;
                 }
                 let task_options: Vec<String> = active_tasks.iter().map(|t| format!("{}: {}", t.id, t.description)).collect();
-                let selection = Select::new().with_prompt("Select task to mark as done").items(&task_options).interact().unwrap();
+                let selection = match Select::new().with_prompt("Select task to mark as done").items(&task_options).interact() {
+                    Ok(s) => s,
+                    Err(_) => {
+                        println!("Interactive mode requires a terminal. Please use command-line arguments instead.");
+                        return;
+                    }
+                };
                 let id = active_tasks[selection].id;
                 if task_manager.mark_done(id) {
                     view::display_task_done(id);
@@ -330,7 +367,13 @@ fn run_interactive_mode(task_manager: &mut TaskManager) {
                     continue;
                 }
                 let task_options: Vec<String> = active_tasks.iter().map(|t| format!("{}: {}", t.id, t.description)).collect();
-                let selection = Select::new().with_prompt("Select task to delete").items(&task_options).interact().unwrap();
+                let selection = match Select::new().with_prompt("Select task to delete").items(&task_options).interact() {
+                    Ok(s) => s,
+                    Err(_) => {
+                        println!("Interactive mode requires a terminal. Please use command-line arguments instead.");
+                        return;
+                    }
+                };
                 let id = active_tasks[selection].id;
                 if task_manager.delete_task(id) {
                     view::display_task_deleted(id);
@@ -343,9 +386,21 @@ fn run_interactive_mode(task_manager: &mut TaskManager) {
                     continue;
                 }
                 let task_options: Vec<String> = active_tasks.iter().map(|t| format!("{}: {}", t.id, t.description)).collect();
-                let selection = Select::new().with_prompt("Select task to add note").items(&task_options).interact().unwrap();
+                let selection = match Select::new().with_prompt("Select task to add note").items(&task_options).interact() {
+                    Ok(s) => s,
+                    Err(_) => {
+                        println!("Interactive mode requires a terminal. Please use command-line arguments instead.");
+                        return;
+                    }
+                };
                 let id = active_tasks[selection].id;
-                let note: String = Input::new().with_prompt("Note").interact_text().unwrap();
+                let note: String = match Input::new().with_prompt("Note").interact_text() {
+                    Ok(n) => n,
+                    Err(_) => {
+                        println!("Interactive mode requires a terminal. Please use command-line arguments instead.");
+                        return;
+                    }
+                };
                 if task_manager.add_note(id, note) {
                     view::display_note_added(id);
                 }
@@ -357,9 +412,21 @@ fn run_interactive_mode(task_manager: &mut TaskManager) {
                     continue;
                 }
                 let task_options: Vec<String> = active_tasks.iter().map(|t| format!("{}: {}", t.id, t.description)).collect();
-                let selection = Select::new().with_prompt("Select task to add subtask").items(&task_options).interact().unwrap();
+                let selection = match Select::new().with_prompt("Select task to add subtask").items(&task_options).interact() {
+                    Ok(s) => s,
+                    Err(_) => {
+                        println!("Interactive mode requires a terminal. Please use command-line arguments instead.");
+                        return;
+                    }
+                };
                 let id = active_tasks[selection].id;
-                let description: String = Input::new().with_prompt("Subtask description").interact_text().unwrap();
+                let description: String = match Input::new().with_prompt("Subtask description").interact_text() {
+                    Ok(desc) => desc,
+                    Err(_) => {
+                        println!("Interactive mode requires a terminal. Please use command-line arguments instead.");
+                        return;
+                    }
+                };
                 if task_manager.add_subtask(id, description) {
                     view::display_subtask_added(id);
                 }
@@ -371,7 +438,13 @@ fn run_interactive_mode(task_manager: &mut TaskManager) {
                     continue;
                 }
                 let task_options: Vec<String> = active_tasks.iter().map(|t| format!("{}: {}", t.id, t.description)).collect();
-                let selection = Select::new().with_prompt("Select task to start timer").items(&task_options).interact().unwrap();
+                let selection = match Select::new().with_prompt("Select task to start timer").items(&task_options).interact() {
+                    Ok(s) => s,
+                    Err(_) => {
+                        println!("Interactive mode requires a terminal. Please use command-line arguments instead.");
+                        return;
+                    }
+                };
                 let id = active_tasks[selection].id;
                 if task_manager.start_timer(id) {
                     view::display_timer_started(id);
@@ -384,7 +457,13 @@ fn run_interactive_mode(task_manager: &mut TaskManager) {
                     continue;
                 }
                 let task_options: Vec<String> = active_tasks.iter().map(|t| format!("{}: {}", t.id, t.description)).collect();
-                let selection = Select::new().with_prompt("Select task to stop timer").items(&task_options).interact().unwrap();
+                let selection = match Select::new().with_prompt("Select task to stop timer").items(&task_options).interact() {
+                    Ok(s) => s,
+                    Err(_) => {
+                        println!("Interactive mode requires a terminal. Please use command-line arguments instead.");
+                        return;
+                    }
+                };
                 let id = active_tasks[selection].id;
                 let time_spent = task_manager.tasks.iter().find(|t| t.id == id).map(|t| t.time_spent).unwrap_or(0);
                 if task_manager.stop_timer(id) {
@@ -399,9 +478,21 @@ fn run_interactive_mode(task_manager: &mut TaskManager) {
                     continue;
                 }
                 let task_options: Vec<String> = active_tasks.iter().map(|t| format!("{}: {}", t.id, t.description)).collect();
-                let selection = Select::new().with_prompt("Select task to add tag").items(&task_options).interact().unwrap();
+                let selection = match Select::new().with_prompt("Select task to add tag").items(&task_options).interact() {
+                    Ok(s) => s,
+                    Err(_) => {
+                        println!("Interactive mode requires a terminal. Please use command-line arguments instead.");
+                        return;
+                    }
+                };
                 let id = active_tasks[selection].id;
-                let tag: String = Input::new().with_prompt("Tag").interact_text().unwrap();
+                let tag: String = match Input::new().with_prompt("Tag").interact_text() {
+                    Ok(t) => t,
+                    Err(_) => {
+                        println!("Interactive mode requires a terminal. Please use command-line arguments instead.");
+                        return;
+                    }
+                };
                 if task_manager.add_tag(id, tag.clone()) {
                     println!("✓ Tag '{}' added to task {}", tag, id);
                 }
@@ -413,9 +504,21 @@ fn run_interactive_mode(task_manager: &mut TaskManager) {
                     continue;
                 }
                 let task_options: Vec<String> = active_tasks.iter().map(|t| format!("{}: {}", t.id, t.description)).collect();
-                let selection = Select::new().with_prompt("Select task to set project").items(&task_options).interact().unwrap();
+                let selection = match Select::new().with_prompt("Select task to set project").items(&task_options).interact() {
+                    Ok(s) => s,
+                    Err(_) => {
+                        println!("Interactive mode requires a terminal. Please use command-line arguments instead.");
+                        return;
+                    }
+                };
                 let id = active_tasks[selection].id;
-                let project: String = Input::new().with_prompt("Project").interact_text().unwrap();
+                let project: String = match Input::new().with_prompt("Project").interact_text() {
+                    Ok(p) => p,
+                    Err(_) => {
+                        println!("Interactive mode requires a terminal. Please use command-line arguments instead.");
+                        return;
+                    }
+                };
                 if task_manager.set_project(id, project.clone()) {
                     println!("✓ Task {} assigned to project '{}'", id, project);
                 }
@@ -427,9 +530,21 @@ fn run_interactive_mode(task_manager: &mut TaskManager) {
                     continue;
                 }
                 let task_options: Vec<String> = active_tasks.iter().map(|t| format!("{}: {}", t.id, t.description)).collect();
-                let selection = Select::new().with_prompt("Select task to set due date").items(&task_options).interact().unwrap();
+                let selection = match Select::new().with_prompt("Select task to set due date").items(&task_options).interact() {
+                    Ok(s) => s,
+                    Err(_) => {
+                        println!("Interactive mode requires a terminal. Please use command-line arguments instead.");
+                        return;
+                    }
+                };
                 let id = active_tasks[selection].id;
-                let date: String = Input::new().with_prompt("Due date (YYYY-MM-DD)").interact_text().unwrap();
+                let date: String = match Input::new().with_prompt("Due date (YYYY-MM-DD)").interact_text() {
+                    Ok(d) => d,
+                    Err(_) => {
+                        println!("Interactive mode requires a terminal. Please use command-line arguments instead.");
+                        return;
+                    }
+                };
                 if let Some(due_date) = parse_due_date(&date) {
                     if task_manager.set_due_date(id, due_date) {
                         println!("✓ Due date set for task {}: {}", id, due_date.format("%Y-%m-%d %H:%M"));
@@ -445,9 +560,21 @@ fn run_interactive_mode(task_manager: &mut TaskManager) {
                     continue;
                 }
                 let task_options: Vec<String> = active_tasks.iter().map(|t| format!("{}: {}", t.id, t.description)).collect();
-                let selection = Select::new().with_prompt("Select task to add checklist item").items(&task_options).interact().unwrap();
+                let selection = match Select::new().with_prompt("Select task to add checklist item").items(&task_options).interact() {
+                    Ok(s) => s,
+                    Err(_) => {
+                        println!("Interactive mode requires a terminal. Please use command-line arguments instead.");
+                        return;
+                    }
+                };
                 let id = active_tasks[selection].id;
-                let item: String = Input::new().with_prompt("Checklist item").interact_text().unwrap();
+                let item: String = match Input::new().with_prompt("Checklist item").interact_text() {
+                    Ok(i) => i,
+                    Err(_) => {
+                        println!("Interactive mode requires a terminal. Please use command-line arguments instead.");
+                        return;
+                    }
+                };
                 if task_manager.add_checklist_item(id, item.clone()) {
                     println!("✓ Checklist item '{}' added to task {}", item, id);
                 }
@@ -462,9 +589,21 @@ fn run_interactive_mode(task_manager: &mut TaskManager) {
             }
             14 => {
                 let format_options = vec!["CSV", "JSON"];
-                let format_idx = Select::new().with_prompt("Export format").items(&format_options).interact().unwrap();
+                let format_idx = match Select::new().with_prompt("Export format").items(&format_options).interact() {
+                    Ok(idx) => idx,
+                    Err(_) => {
+                        println!("Interactive mode requires a terminal. Please use command-line arguments instead.");
+                        return;
+                    }
+                };
                 let format = if format_idx == 0 { "csv" } else { "json" };
-                let filename: String = Input::new().with_prompt("Filename").interact_text().unwrap();
+                let filename: String = match Input::new().with_prompt("Filename").interact_text() {
+                    Ok(f) => f,
+                    Err(_) => {
+                        println!("Interactive mode requires a terminal. Please use command-line arguments instead.");
+                        return;
+                    }
+                };
                 let result = match format {
                     "csv" => task_manager.export_csv(&filename),
                     "json" => task_manager.export_json(&filename),

@@ -95,6 +95,7 @@ pub fn display_invalid_priority() {
     println!("{} Invalid priority. Use: low, medium, or high.", "⚠".yellow());
 }
 
+#[allow(dead_code)]
 pub fn display_no_tasks_for_action() {
     println!("{} No tasks available for this action.", "ℹ".blue());
     println!("💡 Tip: Add a task first with 'task_manager add \"Your task\"'");

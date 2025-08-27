@@ -4,7 +4,17 @@ A comprehensive and powerful command-line task management tool built with Rust. 
 
 ![Rust](https://img.shields.io/badge/rust-1.70%2B-orange)
 ![License](https://img.shields.io/badge/license-MIT-blue)
-![Build](https://img.shields.io/badge/build-passing-green)
+![Build](https://img.shields.io/badge/build-passing-brightgreen)
+![Edition](https://img.shields.io/badge/edition-2021-blue)
+
+## 🆕 Recent Updates
+
+### v0.1.0 - Latest Improvements
+- ✅ **Fixed compilation warnings** - Removed dead code warnings
+- ✅ **Interactive mode stability** - Fixed panics when not running in TTY
+- ✅ **Rust edition update** - Updated to edition 2021 for better compatibility
+- ✅ **Error handling** - Improved error messages and graceful failure handling
+- ✅ **Data export** - Verified CSV and JSON export functionality
 
 ## 🚀 Features
 
@@ -31,7 +41,7 @@ A comprehensive and powerful command-line task management tool built with Rust. 
 ## 📦 Installation
 
 ### Prerequisites
-- Rust 1.70 or higher
+- Rust 1.70 or higher (edition 2021)
 - Cargo package manager
 
 ### Build from Source
@@ -475,6 +485,11 @@ The application uses colored output by default. If you prefer plain text:
 
 ### Interactive Mode Issues
 
+**"Interactive mode requires a terminal" error**
+- The application now gracefully handles non-TTY environments
+- Use command-line arguments instead when running in scripts or IDEs
+- Run in a proper terminal for full interactive experience
+
 **Menu not displaying correctly**
 - Ensure you're running in a proper terminal
 - Try different terminal applications
@@ -564,13 +579,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- Built with [Rust](https://www.rust-lang.org/)
-- CLI framework: [clap](https://github.com/clap-rs/clap)
-- Color output: [colored](https://github.com/colored-rs/colored)
-- Interactive prompts: [dialoguer](https://github.com/console-rs/dialoguer)
-- Date/time handling: [chrono](https://github.com/chronotope/chrono)
-- JSON serialization: [serde](https://github.com/serde-rs/serde)
-- Advanced terminal UI: [console](https://github.com/console-rs/console)
+- Built with [Rust](https://www.rust-lang.org/) (Edition 2021)
+- CLI framework: [clap](https://github.com/clap-rs/clap) v4.5
+- Color output: [colored](https://github.com/colored-rs/colored) v2.0
+- Interactive prompts: [dialoguer](https://github.com/console-rs/dialoguer) v0.11
+- Date/time handling: [chrono](https://github.com/chronotope/chrono) v0.4
+- JSON serialization: [serde](https://github.com/serde-rs/serde) v1.0
 
 ### Feature Inspiration
 - **TaskWarrior**: Advanced filtering and command-line task management
