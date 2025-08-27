@@ -78,10 +78,10 @@ pub enum InputField {
 }
 
 impl App {
-    pub fn new() -> Self {
+    pub fn new(task_manager: TaskManager) -> Self {
         Self {
             state: AppState::MainMenu,
-            task_manager: TaskManager::new(),
+            task_manager,
             selected_task: 0,
             selected_board: 0,
             selected_export: 0,
@@ -1790,7 +1790,15 @@ fn format_time(seconds: u64) -> String {
     }
 }
 
-pub fn run_tui() -> Result<(), Box<dyn std::error::Error>> {
-    let mut app = App::new();
-    app.run()
+pub fn run_tui(task_manager: &mut TaskManager) -> Result<(), Box<dyn std::error::Error>> {
+    // Create a temporary TaskManager for the TUI
+    let temp_manager = TaskManager::new();
+    let original_manager = std::mem::replace(task_manager, temp_manager);
+
+    let mut app = App::new(original_manager);
+    app.run()?;
+
+    // Put the updated manager back
+    *task_manager = app.task_manager;
+    Ok(())
 }
