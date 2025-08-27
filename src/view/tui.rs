@@ -150,7 +150,10 @@ impl App {
 
     fn handle_main_menu_input(&mut self, key: event::KeyEvent) {
         match key.code {
-            KeyCode::Char('1') => self.state = AppState::TaskList,
+            KeyCode::Char('1') => {
+                self.state = AppState::TaskList;
+                self.reset_task_selection();
+            }
             KeyCode::Char('2') => {
                 self.state = AppState::AddTask;
                 self.input_field = InputField::TaskDescription;
@@ -171,16 +174,40 @@ impl App {
 
     fn handle_task_list_input(&mut self, key: event::KeyEvent) {
         let tasks = self.task_manager.get_active_tasks();
+        let max_index = tasks.len().saturating_sub(1);
+
         match key.code {
             KeyCode::Down | KeyCode::Char('j') => {
-                if self.selected_task < tasks.len().saturating_sub(1) {
+                if self.selected_task < max_index {
                     self.selected_task += 1;
+                } else if !tasks.is_empty() {
+                    // Wrap to beginning if at end
+                    self.selected_task = 0;
                 }
             }
             KeyCode::Up | KeyCode::Char('k') => {
                 if self.selected_task > 0 {
                     self.selected_task -= 1;
+                } else if !tasks.is_empty() {
+                    // Wrap to end if at beginning
+                    self.selected_task = max_index;
                 }
+            }
+            KeyCode::PageDown => {
+                // Jump down by 5 items
+                self.selected_task = (self.selected_task + 5).min(max_index);
+            }
+            KeyCode::PageUp => {
+                // Jump up by 5 items
+                self.selected_task = self.selected_task.saturating_sub(5);
+            }
+            KeyCode::Home => {
+                // Go to first item
+                self.selected_task = 0;
+            }
+            KeyCode::End => {
+                // Go to last item
+                self.selected_task = max_index;
             }
             KeyCode::Enter => {
                 if !tasks.is_empty() {
@@ -584,6 +611,15 @@ impl App {
         }
     }
 
+    fn reset_task_selection(&mut self) {
+        let tasks = self.task_manager.get_active_tasks();
+        if tasks.is_empty() {
+            self.selected_task = 0;
+        } else if self.selected_task >= tasks.len() {
+            self.selected_task = tasks.len().saturating_sub(1);
+        }
+    }
+
     fn ui(&mut self, f: &mut Frame) {
         let size = f.size();
 
@@ -667,15 +703,21 @@ impl App {
             .constraints([Constraint::Length(3), Constraint::Min(5), Constraint::Length(3)])
             .split(area);
 
-        // Header
-        let header = Paragraph::new("📋 Your Tasks")
+        // Task list
+        let tasks = self.task_manager.get_active_tasks();
+
+        // Header with selection info
+        let header_text = if tasks.is_empty() {
+            "📋 Your Tasks (No tasks)".to_string()
+        } else {
+            format!("📋 Your Tasks ({}/{})", self.selected_task + 1, tasks.len())
+        };
+
+        let header = Paragraph::new(header_text)
             .style(Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))
             .alignment(Alignment::Center)
             .block(Block::default().borders(Borders::ALL));
         f.render_widget(header, chunks[0]);
-
-        // Task list
-        let tasks = self.task_manager.get_active_tasks();
         let items: Vec<ListItem> = tasks
             .iter()
             .enumerate()
@@ -693,11 +735,60 @@ impl App {
                     Style::default().fg(Color::White)
                 };
 
-                ListItem::new(Line::from(vec![
-                    Span::styled(format!("{} ", status), Style::default().fg(Color::Green)),
+                // Build metadata string
+                let mut metadata_parts = Vec::new();
+
+                // Add project if exists
+                if let Some(project) = &task.project {
+                    metadata_parts.push(format!("📁 {}", project));
+                }
+
+                // Add tags if exist
+                if !task.tags.is_empty() {
+                    metadata_parts.push(format!("🏷️ {}", task.tags.join(", ")));
+                }
+
+                // Add note indicator if exists
+                if task.notes.is_some() {
+                    metadata_parts.push("📝 Has note".to_string());
+                }
+
+                // Add subtasks indicator if exist
+                if !task.subtasks.is_empty() {
+                    let done_count = task.subtasks.iter().filter(|st| st.done).count();
+                    metadata_parts.push(format!("➕ {}/{}", done_count, task.subtasks.len()));
+                }
+
+                // Add checklist indicator if exist
+                if !task.checklists.is_empty() {
+                    let done_count = task.checklists.iter().filter(|ci| ci.done).count();
+                    metadata_parts.push(format!("📋 {}/{}", done_count, task.checklists.len()));
+                }
+
+                // Add time spent if any
+                if task.time_spent > 0 {
+                    metadata_parts.push(format!("⏱️ {}", format_time(task.time_spent)));
+                }
+
+                let metadata = if metadata_parts.is_empty() {
+                    String::new()
+                } else {
+                    format!(" | {}", metadata_parts.join(" | "))
+                };
+
+                let cursor = if i == self.selected_task { "▶" } else { " " };
+
+                let mut line_parts = vec![
+                    Span::styled(format!("{} {} ", cursor, status), Style::default().fg(Color::Green)),
                     Span::styled(&task.description, style),
                     Span::styled(format!(" ({:?})", task.priority), Style::default().fg(priority_color)),
-                ]))
+                ];
+
+                if !metadata.is_empty() {
+                    line_parts.push(Span::styled(metadata, Style::default().fg(Color::Gray)));
+                }
+
+                ListItem::new(Line::from(line_parts))
             })
             .collect();
 
@@ -713,7 +804,7 @@ impl App {
         f.render_widget(task_list, chunks[1]);
 
         // Footer
-        let footer = Paragraph::new("↑/↓ Navigate • Enter: Actions • d: Done • a: Add • n: Note • s: Subtask • t: Tag • p: Project • c: Checklist • /: Filter • Esc: Back")
+        let footer = Paragraph::new("↑/↓/j/k: Navigate • PgUp/PgDn: Jump • Home/End: First/Last • Enter: Actions • d: Done • a: Add • n: Note • s: Subtask • t: Tag • p: Project • c: Checklist • /: Filter • Esc: Back")
             .style(Style::default().fg(Color::Gray))
             .alignment(Alignment::Center)
             .wrap(Wrap { trim: true });
