@@ -123,6 +123,11 @@ pub fn handle_command(command: Commands, task_manager: &mut TaskManager) {
         Commands::Interactive => {
             run_interactive_mode(task_manager);
         }
+        Commands::Tui => {
+            if let Err(e) = crate::view::tui::run_tui() {
+                println!("TUI error: {}", e);
+            }
+        }
         Commands::Usage => {
             show_detailed_help();
         }

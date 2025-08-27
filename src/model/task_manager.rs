@@ -4,6 +4,7 @@ use std::fs;
 use std::path::Path;
 use super::task::{Task, Priority, SubTask, CheckItem};
 
+#[derive(Debug)]
 pub struct TaskManager {
     pub tasks: Vec<Task>,
     pub boards: Vec<String>,

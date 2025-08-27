@@ -94,6 +94,8 @@ pub enum Commands {
     },
     #[command(about = "Start interactive mode with menus")]
     Interactive,
+    #[command(about = "Start beautiful TUI mode with Ratatui")]
+    Tui,
     #[command(about = "Show detailed usage and examples")]
     Usage,
     #[command(about = "Board management commands")]
