@@ -36,6 +36,7 @@ impl TaskManager {
             description,
             done: false,
             created_at,
+            updated_at: created_at,
             deleted_at: None,
             priority,
             notes: None,
@@ -58,6 +59,7 @@ impl TaskManager {
             description,
             done: false,
             created_at,
+            updated_at: created_at,
             deleted_at: None,
             priority,
             notes: None,
@@ -75,6 +77,7 @@ impl TaskManager {
     pub fn mark_done(&mut self, id: u32) -> bool {
         if let Some(task) = self.tasks.iter_mut().find(|t| t.id == id && t.deleted_at.is_none()) {
             task.done = true;
+            task.updated_at = Utc::now();
             // Move to Done board if not already there
             task.board = Some("Done".to_string());
             true
@@ -95,6 +98,7 @@ impl TaskManager {
     pub fn add_note(&mut self, id: u32, note: String) -> bool {
         if let Some(task) = self.tasks.iter_mut().find(|t| t.id == id && t.deleted_at.is_none()) {
             task.notes = Some(note);
+            task.updated_at = Utc::now();
             true
         } else {
             false
@@ -109,6 +113,31 @@ impl TaskManager {
                 description,
                 done: false,
             });
+            task.updated_at = Utc::now();
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn rename_task(&mut self, id: u32, new_description: String) -> bool {
+        if let Some(task) = self.tasks.iter_mut().find(|t| t.id == id && t.deleted_at.is_none()) {
+            task.description = new_description;
+            task.updated_at = Utc::now();
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn mark_undone(&mut self, id: u32) -> bool {
+        if let Some(task) = self.tasks.iter_mut().find(|t| t.id == id && t.deleted_at.is_none()) {
+            task.done = false;
+            task.updated_at = Utc::now();
+            // Move back to Todo board if currently in Done
+            if task.board.as_ref() == Some(&"Done".to_string()) {
+                task.board = Some("Todo".to_string());
+            }
             true
         } else {
             false
@@ -187,6 +216,7 @@ impl TaskManager {
     pub fn move_task_to_board(&mut self, id: u32, board: String) -> bool {
         if let Some(task) = self.tasks.iter_mut().find(|t| t.id == id && t.deleted_at.is_none()) {
             task.board = Some(board);
+            task.updated_at = Utc::now();
             true
         } else {
             false
@@ -198,6 +228,7 @@ impl TaskManager {
         if let Some(task) = self.tasks.iter_mut().find(|t| t.id == id && t.deleted_at.is_none()) {
             if !task.tags.contains(&tag) {
                 task.tags.push(tag);
+                task.updated_at = Utc::now();
             }
             true
         } else {
@@ -208,6 +239,7 @@ impl TaskManager {
     pub fn remove_tag(&mut self, id: u32, tag: &str) -> bool {
         if let Some(task) = self.tasks.iter_mut().find(|t| t.id == id && t.deleted_at.is_none()) {
             task.tags.retain(|t| t != tag);
+            task.updated_at = Utc::now();
             true
         } else {
             false
@@ -218,6 +250,7 @@ impl TaskManager {
     pub fn set_due_date(&mut self, id: u32, due_date: DateTime<Utc>) -> bool {
         if let Some(task) = self.tasks.iter_mut().find(|t| t.id == id && t.deleted_at.is_none()) {
             task.due_date = Some(due_date);
+            task.updated_at = Utc::now();
             true
         } else {
             false
@@ -233,6 +266,7 @@ impl TaskManager {
                 description,
                 done: false,
             });
+            task.updated_at = Utc::now();
             true
         } else {
             false
@@ -243,6 +277,7 @@ impl TaskManager {
         if let Some(task) = self.tasks.iter_mut().find(|t| t.id == task_id && t.deleted_at.is_none()) {
             if let Some(item) = task.checklists.iter_mut().find(|i| i.id == item_id) {
                 item.done = !item.done;
+                task.updated_at = Utc::now();
                 true
             } else {
                 false
@@ -256,6 +291,7 @@ impl TaskManager {
     pub fn set_project(&mut self, id: u32, project: String) -> bool {
         if let Some(task) = self.tasks.iter_mut().find(|t| t.id == id && t.deleted_at.is_none()) {
             task.project = Some(project);
+            task.updated_at = Utc::now();
             true
         } else {
             false

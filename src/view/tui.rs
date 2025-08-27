@@ -33,6 +33,7 @@ pub enum AppState {
     SetProject(usize),
     SetDueDate(usize),
     AddChecklistItem(usize),
+    RenameTask(usize),
     BoardView,
     CalendarView,
     TimelineView,
@@ -73,6 +74,7 @@ pub enum InputField {
     ChecklistItem,
     FilterQuery,
     FocusContext,
+    RenameTask,
 }
 
 impl App {
@@ -131,14 +133,15 @@ impl App {
             AppState::MainMenu => self.handle_main_menu_input(key),
             AppState::TaskList => self.handle_task_list_input(key),
             AppState::AddTask => self.handle_add_task_input(key),
-            AppState::TaskDetails(_) => self.handle_task_details_input(key),
-            AppState::TaskActions(_) => self.handle_task_actions_input(key),
-            AppState::AddNote(_) => self.handle_add_note_input(key),
-            AppState::AddSubtask(_) => self.handle_add_subtask_input(key),
-            AppState::AddTag(_) => self.handle_add_tag_input(key),
-            AppState::SetProject(_) => self.handle_set_project_input(key),
-            AppState::SetDueDate(_) => self.handle_set_due_date_input(key),
-            AppState::AddChecklistItem(_) => self.handle_add_checklist_item_input(key),
+            AppState::TaskDetails(index) => self.handle_task_details_input(key),
+            AppState::TaskActions(index) => self.handle_task_actions_input(key),
+            AppState::AddNote(index) => self.handle_add_note_input(key),
+            AppState::AddSubtask(index) => self.handle_add_subtask_input(key),
+            AppState::AddTag(index) => self.handle_add_tag_input(key),
+            AppState::SetProject(index) => self.handle_set_project_input(key),
+            AppState::SetDueDate(index) => self.handle_set_due_date_input(key),
+            AppState::AddChecklistItem(index) => self.handle_add_checklist_item_input(key),
+            AppState::RenameTask(index) => self.handle_rename_task_input(key),
             AppState::BoardView => self.handle_board_view_input(key),
             AppState::CalendarView => self.handle_calendar_view_input(key),
             AppState::TimelineView => self.handle_timeline_view_input(key),
@@ -331,6 +334,23 @@ impl App {
                         self.task_manager.mark_done(task_id);
                         self.state = AppState::TaskList;
                     }
+                }
+            }
+            KeyCode::Char('u') => {
+                if let AppState::TaskActions(index) = self.state {
+                    let tasks = self.task_manager.get_active_tasks();
+                    if index < tasks.len() {
+                        let task_id = tasks[index].id;
+                        self.task_manager.mark_undone(task_id);
+                        self.state = AppState::TaskList;
+                    }
+                }
+            }
+            KeyCode::Char('r') => {
+                if let AppState::TaskActions(index) = self.state {
+                    self.current_task_id = Some(self.task_manager.get_active_tasks()[index].id);
+                    self.state = AppState::RenameTask(index);
+                    self.input_field = InputField::RenameTask;
                 }
             }
             KeyCode::Char('n') => {
@@ -546,6 +566,31 @@ impl App {
         }
     }
 
+    fn handle_rename_task_input(&mut self, key: event::KeyEvent) {
+        match key.code {
+            KeyCode::Enter => {
+                if let Some(task_id) = self.current_task_id {
+                    self.task_manager.rename_task(task_id, self.input_buffer.clone());
+                    self.input_buffer.clear();
+                    self.input_field = InputField::None;
+                    self.state = AppState::TaskList;
+                }
+            }
+            KeyCode::Backspace => {
+                self.input_buffer.pop();
+            }
+            KeyCode::Char(c) => {
+                self.input_buffer.push(c);
+            }
+            KeyCode::Esc => {
+                self.input_buffer.clear();
+                self.input_field = InputField::None;
+                self.state = AppState::TaskList;
+            }
+            _ => {}
+        }
+    }
+
     fn handle_board_view_input(&mut self, key: event::KeyEvent) {
         match key.code {
             KeyCode::Esc | KeyCode::Char('q') => self.state = AppState::MainMenu,
@@ -635,6 +680,7 @@ impl App {
             AppState::SetProject(index) => self.draw_set_project(f, size, index),
             AppState::SetDueDate(index) => self.draw_set_due_date(f, size, index),
             AppState::AddChecklistItem(index) => self.draw_add_checklist_item(f, size, index),
+            AppState::RenameTask(index) => self.draw_rename_task(f, size, index),
             AppState::BoardView => self.draw_board_view(f, size),
             AppState::CalendarView => self.draw_calendar_view(f, size),
             AppState::TimelineView => self.draw_timeline_view(f, size),
@@ -891,6 +937,11 @@ impl App {
                              Style::default().fg(Color::Cyan)),
             ]),
             Line::from(vec![
+                Span::styled("Updated: ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+                Span::styled(task.updated_at.format("%Y-%m-%d %H:%M").to_string(),
+                             Style::default().fg(Color::Magenta)),
+            ]),
+            Line::from(vec![
                 Span::styled("Time Spent: ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
                 Span::styled(format_time(task.time_spent), Style::default().fg(Color::Yellow)),
             ]),
@@ -900,7 +951,21 @@ impl App {
             ]),
         ];
 
-        let basic_paragraph = Paragraph::new(Text::from(basic_info))
+        let mut date_info = Vec::new();
+
+        // Add deleted date if task is deleted
+        if let Some(deleted_at) = task.deleted_at {
+            date_info.push(Line::from(vec![
+                Span::styled("Deleted: ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+                Span::styled(deleted_at.format("%Y-%m-%d %H:%M").to_string(),
+                             Style::default().fg(Color::Red)),
+            ]));
+        }
+
+        let mut all_basic_info = basic_info;
+        all_basic_info.extend(date_info);
+
+        let basic_paragraph = Paragraph::new(Text::from(all_basic_info))
             .block(Block::default().borders(Borders::ALL).title("📊 Basic Information"))
             .wrap(Wrap { trim: true });
         f.render_widget(basic_paragraph, chunks[1]);
@@ -1068,12 +1133,13 @@ impl App {
         // Actions menu
         let actions = vec![
             "d. ✅ Mark as Done",
+            "u. ↩️  Mark as Undone",
+            "r. ✏️  Rename Task",
             "n. 📝 Add Note",
             "s. ➕ Add Subtask",
             "t. 🏷️  Add Tag",
             "p. 📁 Set Project",
             "c. 📋 Add Checklist Item",
-            "r. ⏰ Start/Stop Timer",
             "v. 👁️  View Full Details",
             "Esc. ↩️  Back to List",
         ];
@@ -1318,6 +1384,45 @@ impl App {
 
         // Instructions
         let instructions = Paragraph::new("Type checklist item and press Enter to add")
+            .style(Style::default().fg(Color::Gray))
+            .alignment(Alignment::Center)
+            .wrap(Wrap { trim: true });
+        f.render_widget(instructions, chunks[2]);
+
+        // Footer
+        let footer = Paragraph::new("Enter: Save • Esc: Cancel")
+            .style(Style::default().fg(Color::Gray))
+            .alignment(Alignment::Center);
+        f.render_widget(footer, chunks[3]);
+    }
+
+    fn draw_rename_task(&self, f: &mut Frame, area: Rect, index: usize) {
+        let tasks = self.task_manager.get_active_tasks();
+        if index >= tasks.len() {
+            return;
+        }
+
+        let task = &tasks[index];
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(3), Constraint::Length(3), Constraint::Min(5), Constraint::Length(3)])
+            .split(area);
+
+        // Header
+        let header = Paragraph::new(format!("✏️ Rename Task - {}", task.description))
+            .style(Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD))
+            .alignment(Alignment::Center)
+            .block(Block::default().borders(Borders::ALL));
+        f.render_widget(header, chunks[0]);
+
+        // Input field
+        let input = Paragraph::new(format!("New name: {}", self.input_buffer))
+            .style(Style::default().fg(Color::White))
+            .block(Block::default().borders(Borders::ALL).title("Task Name"));
+        f.render_widget(input, chunks[1]);
+
+        // Instructions
+        let instructions = Paragraph::new("Type new task name and press Enter to rename")
             .style(Style::default().fg(Color::Gray))
             .alignment(Alignment::Center)
             .wrap(Wrap { trim: true });
@@ -1637,6 +1742,17 @@ impl App {
             Line::from("  • p: Set project for selected task"),
             Line::from("  • c: Add checklist item"),
             Line::from("  • /: Filter/search tasks"),
+            Line::from(""),
+            Line::from("🔧 Task Actions Menu:"),
+            Line::from("  • d: Mark as done"),
+            Line::from("  • u: Mark as undone"),
+            Line::from("  • r: Rename task"),
+            Line::from("  • n: Add note"),
+            Line::from("  • s: Add subtask"),
+            Line::from("  • t: Add tag"),
+            Line::from("  • p: Set project"),
+            Line::from("  • c: Add checklist item"),
+            Line::from("  • v: View full details"),
             Line::from(""),
             Line::from("🎨 Interface:"),
             Line::from("  • 🔴 High priority (red)"),

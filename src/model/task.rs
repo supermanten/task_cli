@@ -28,6 +28,7 @@ pub struct Task {
     pub description: String,
     pub done: bool,
     pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
     pub deleted_at: Option<DateTime<Utc>>,
     pub priority: Priority,
     pub notes: Option<String>,
