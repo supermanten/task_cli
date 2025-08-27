@@ -835,7 +835,7 @@ impl App {
         f.render_widget(task_list, chunks[1]);
 
         // Footer
-        let footer = Paragraph::new("↑/↓/j/k: Navigate • Enter: Actions • d: Done • a: Add • n: Note • s: Subtask • t: Tag • p: Project • c: Checklist • /: Filter • Esc: Back")
+        let footer = Paragraph::new("↑/↓/j/k: Navigate • Enter: Actions • d: Done • a: Add • n: Note • s: Subtask • t: Tag • p: Project • c: Checklist • Esc: Back")
             .style(Style::default().fg(Color::Gray))
             .alignment(Alignment::Center)
             .wrap(Wrap { trim: true });
