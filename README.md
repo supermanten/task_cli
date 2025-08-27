@@ -311,6 +311,53 @@ This provides a menu-driven interface where you can:
 - **Time Tracking**: Start/stop timers with visual feedback
 - **Export Data**: Choose format and filename interactively
 
+### TUI Mode (Terminal User Interface)
+For a rich, visual experience with beautiful terminal graphics, use TUI mode:
+
+```bash
+# Start the interactive TUI
+cargo run -- tui
+
+# Or after building
+./rio tui
+```
+
+This launches a full-screen terminal application built with Ratatui that provides:
+- **Beautiful Visual Interface**: Colorful, modern terminal UI with borders and styling
+- **Main Menu Navigation**: Number-key navigation through all features
+- **Real-time Task Management**: View, add, edit, and manage tasks with live updates
+- **Multiple Views**: Switch between different perspectives (tasks, boards, calendar, timeline, focus)
+- **Interactive Task Actions**: Rich context menus for each task
+- **Live Search & Filtering**: Real-time filtering as you type
+- **Visual Feedback**: Color-coded priorities, status indicators, and progress tracking
+
+**TUI Mode Features:**
+- **📋 Task List View**: Navigate tasks with arrow keys/j/k, mark done with 'd', add new with 'a'
+- **📊 Board View**: Kanban-style board visualization with task counts
+- **📅 Calendar View**: Tasks organized by due dates
+- **⏰ Timeline View**: Chronological view by creation date with time tracking
+- **🎯 Focus View**: Filter tasks by tag, project, or board in real-time
+- **💾 Export View**: Interactive export to CSV or JSON formats
+- **❓ Help View**: Comprehensive keyboard shortcuts and navigation guide
+- **Task Actions Menu**: Press Enter on any task for full management options
+- **Rich Metadata Display**: Projects, tags, notes, subtasks, checklists, and time tracking
+- **Color Coding**: Priority levels (🔴 High/🟡 Medium/🟢 Low) and status indicators
+- **Progress Tracking**: Visual completion percentages for subtasks and checklists
+
+**TUI Navigation:**
+- **Number Keys**: Select main menu options (1-8)
+- **Arrow Keys/j/k**: Navigate through lists
+- **Enter**: Select/confirm actions
+- **Esc**: Go back/cancel
+- **Task-specific Keys**: d (done), a (add), n (note), s (subtask), t (tag), p (project), c (checklist), / (filter)
+
+**TUI Advantages over CLI:**
+- **Visual Layout**: See all information at once with proper spacing and colors
+- **Faster Navigation**: No need to remember commands or type long arguments
+- **Immediate Feedback**: See changes instantly without re-running commands
+- **Rich Context**: View full task details, metadata, and relationships in one place
+- **Guided Workflow**: Menus guide you through complex operations step-by-step
+
 ### Checklists - Complete Guide
 Checklists allow you to break down complex tasks into manageable steps:
 
