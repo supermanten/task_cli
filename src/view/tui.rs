@@ -313,7 +313,7 @@ impl App {
                     if index < tasks.len() {
                         let task_id = tasks[index].id;
                         self.task_manager.mark_done(task_id);
-                        self.state = AppState::TaskList;
+                        // Stay on the same task details but refresh the view
                     }
                 }
             }
@@ -853,7 +853,12 @@ impl App {
         let task = &tasks[index];
         let chunks = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([Constraint::Length(3), Constraint::Min(10), Constraint::Length(3)])
+            .constraints([
+                Constraint::Length(3),  // Header
+                Constraint::Length(8),  // Basic info
+                Constraint::Min(5),     // Details content
+                Constraint::Length(3),  // Footer
+            ])
             .split(area);
 
         // Header
@@ -863,42 +868,159 @@ impl App {
             .block(Block::default().borders(Borders::ALL));
         f.render_widget(header, chunks[0]);
 
-        // Task details
+        // Basic Information
         let priority_color = match task.priority {
             Priority::High => Color::Red,
             Priority::Medium => Color::Yellow,
             Priority::Low => Color::Green,
         };
 
-        let details = vec![
+        let basic_info = vec![
             Line::from(vec![
-                Span::styled("Status: ", Style::default().fg(Color::White)),
-                Span::styled(if task.done { "✅ Done" } else { "⏳ In Progress" }, Style::default().fg(Color::Green)),
+                Span::styled("Status: ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+                Span::styled(if task.done { "✅ Completed" } else { "⏳ In Progress" },
+                             Style::default().fg(if task.done { Color::Green } else { Color::Yellow })),
             ]),
             Line::from(vec![
-                Span::styled("Priority: ", Style::default().fg(Color::White)),
+                Span::styled("Priority: ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
                 Span::styled(format!("{:?}", task.priority), Style::default().fg(priority_color)),
             ]),
             Line::from(vec![
-                Span::styled("Created: ", Style::default().fg(Color::White)),
-                Span::styled(task.created_at.format("%Y-%m-%d %H:%M").to_string(), Style::default().fg(Color::Cyan)),
+                Span::styled("Created: ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+                Span::styled(task.created_at.format("%Y-%m-%d %H:%M").to_string(),
+                             Style::default().fg(Color::Cyan)),
             ]),
             Line::from(vec![
-                Span::styled("Time Spent: ", Style::default().fg(Color::White)),
+                Span::styled("Time Spent: ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
                 Span::styled(format_time(task.time_spent), Style::default().fg(Color::Yellow)),
+            ]),
+            Line::from(vec![
+                Span::styled("Task ID: ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+                Span::styled(format!("#{}", task.id), Style::default().fg(Color::Gray)),
             ]),
         ];
 
-        let details_paragraph = Paragraph::new(Text::from(details))
-            .block(Block::default().borders(Borders::ALL).title("Task Information"))
+        let basic_paragraph = Paragraph::new(Text::from(basic_info))
+            .block(Block::default().borders(Borders::ALL).title("📊 Basic Information"))
             .wrap(Wrap { trim: true });
-        f.render_widget(details_paragraph, chunks[1]);
+        f.render_widget(basic_paragraph, chunks[1]);
+
+        // Detailed Information
+        let mut details_lines = Vec::new();
+
+        // Project
+        if let Some(project) = &task.project {
+            details_lines.push(Line::from(vec![
+                Span::styled("📁 Project: ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+                Span::styled(project, Style::default().fg(Color::Cyan)),
+            ]));
+        }
+
+        // Due Date
+        if let Some(due_date) = task.due_date {
+            details_lines.push(Line::from(vec![
+                Span::styled("📅 Due Date: ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+                Span::styled(due_date.format("%Y-%m-%d %H:%M").to_string(),
+                             Style::default().fg(Color::Red)),
+            ]));
+        }
+
+        // Board
+        if let Some(board) = &task.board {
+            details_lines.push(Line::from(vec![
+                Span::styled("📋 Board: ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+                Span::styled(board, Style::default().fg(Color::Green)),
+            ]));
+        }
+
+        // Tags
+        if !task.tags.is_empty() {
+            details_lines.push(Line::from(vec![
+                Span::styled("🏷️ Tags: ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+                Span::styled(task.tags.join(", "), Style::default().fg(Color::Magenta)),
+            ]));
+        }
+
+        // Notes
+        if let Some(note) = &task.notes {
+            details_lines.push(Line::from(""));
+            details_lines.push(Line::from(vec![
+                Span::styled("📝 Notes:", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+            ]));
+            details_lines.push(Line::from(vec![
+                Span::styled(note, Style::default().fg(Color::Gray)),
+            ]));
+        }
+
+        // Subtasks
+        if !task.subtasks.is_empty() {
+            let completed_subtasks = task.subtasks.iter().filter(|st| st.done).count();
+            let total_subtasks = task.subtasks.len();
+            let completion_percentage = if total_subtasks > 0 {
+                (completed_subtasks as f64 / total_subtasks as f64 * 100.0) as u32
+            } else {
+                0
+            };
+
+            details_lines.push(Line::from(""));
+            details_lines.push(Line::from(vec![
+                Span::styled(format!("➕ Subtasks: {} ({:.0}%)", total_subtasks, completion_percentage),
+                             Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+            ]));
+
+            for (i, subtask) in task.subtasks.iter().enumerate() {
+                let status_icon = if subtask.done { "✅" } else { "⏳" };
+                let status_color = if subtask.done { Color::Green } else { Color::Yellow };
+                details_lines.push(Line::from(vec![
+                    Span::styled(format!("  {}. {} ", i + 1, status_icon), Style::default().fg(status_color)),
+                    Span::styled(&subtask.description, Style::default().fg(Color::White)),
+                ]));
+            }
+        }
+
+        // Checklist Items
+        if !task.checklists.is_empty() {
+            let completed_items = task.checklists.iter().filter(|ci| ci.done).count();
+            let total_items = task.checklists.len();
+            let completion_percentage = if total_items > 0 {
+                (completed_items as f64 / total_items as f64 * 100.0) as u32
+            } else {
+                0
+            };
+
+            details_lines.push(Line::from(""));
+            details_lines.push(Line::from(vec![
+                Span::styled(format!("📋 Checklist: {} ({:.0}%)", total_items, completion_percentage),
+                             Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+            ]));
+
+            for (i, checklist_item) in task.checklists.iter().enumerate() {
+                let status_icon = if checklist_item.done { "☑" } else { "☐" };
+                let status_color = if checklist_item.done { Color::Green } else { Color::Yellow };
+                details_lines.push(Line::from(vec![
+                    Span::styled(format!("  {}. {} ", i + 1, status_icon), Style::default().fg(status_color)),
+                    Span::styled(&checklist_item.description, Style::default().fg(Color::White)),
+                ]));
+            }
+        }
+
+        // If no additional details
+        if details_lines.is_empty() {
+            details_lines.push(Line::from(vec![
+                Span::styled("No additional details available", Style::default().fg(Color::Gray)),
+            ]));
+        }
+
+        let details_paragraph = Paragraph::new(Text::from(details_lines))
+            .block(Block::default().borders(Borders::ALL).title("📋 Detailed Information"))
+            .wrap(Wrap { trim: true });
+        f.render_widget(details_paragraph, chunks[2]);
 
         // Footer
-        let footer = Paragraph::new("d: Mark Done • Esc: Back")
+        let footer = Paragraph::new("d: Mark Done • Esc: Back to List")
             .style(Style::default().fg(Color::Gray))
             .alignment(Alignment::Center);
-        f.render_widget(footer, chunks[2]);
+        f.render_widget(footer, chunks[3]);
     }
 
     fn draw_task_actions(&self, f: &mut Frame, area: Rect, index: usize) {
@@ -952,7 +1074,7 @@ impl App {
             "p. 📁 Set Project",
             "c. 📋 Add Checklist Item",
             "r. ⏰ Start/Stop Timer",
-            "v. 👁️  View Details",
+            "v. 👁️  View Full Details",
             "Esc. ↩️  Back to List",
         ];
 
@@ -1535,6 +1657,22 @@ impl App {
             .alignment(Alignment::Center);
         f.render_widget(footer, chunks[2]);
     }
+
+
+fn format_time(seconds: u64) -> String {
+    let hours = seconds / 3600;
+    let minutes = (seconds % 3600) / 60;
+    let secs = seconds % 60;
+
+    if hours > 0 {
+        format!("{}h {}m {}s", hours, minutes, secs)
+    } else if minutes > 0 {
+        format!("{}m {}s", minutes, secs)
+    } else {
+        format!("{}s", secs)
+    }
+}
+
 }
 
 fn format_time(seconds: u64) -> String {
